@@ -42,8 +42,8 @@ Usable, Self-Contained Jeme OS Desktop
 Clone the repository and run the master installer:
 
 ```bash
-git clone https://github.com/your-username/jeme-rice.git ~/jeme-rice
-cd ~/jeme-rice
+git clone https://github.com/Jenish5039/Jeme-OS-Hyperland.git ~/jeme-os
+cd ~/jeme-os
 ./install.sh
 ```
 

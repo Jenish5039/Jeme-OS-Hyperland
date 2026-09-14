@@ -50,8 +50,8 @@ Log into Jeme / Hyprland
 
 ### Quickstart:
 ```bash
-git clone https://github.com/your-username/jeme-rice.git ~/jeme-rice
-cd ~/jeme-rice
+git clone https://github.com/Jenish5039/Jeme-OS-Hyperland.git ~/jeme-os
+cd ~/jeme-os
 ./install.sh
 ```
 
