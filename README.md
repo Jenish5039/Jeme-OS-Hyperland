@@ -36,23 +36,41 @@
 
 ## 🚀 Installation (Fresh Fedora Bootstrap)
 
-```
-Fresh Fedora (Minimal, Server, or Workstation)
-    ↓
-Clone Jeme OS Rice repository
-    ↓
-Run ./install.sh
-    ↓
-Automated Dependency & Hardware Setup
-    ↓
-Log into Jeme / Hyprland
+### One-Line Install (Recommended)
+
+On any fresh Fedora installation (Minimal, Server, or Workstation), start the installation directly with:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Jenish5039/Jeme-OS-Hyperland/main/bootstrap.sh | bash
 ```
 
-### Quickstart:
+### Inspect-First Alternative (Safer)
+
+If you prefer to inspect the bootstrap script before running it on your system:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Jenish5039/Jeme-OS-Hyperland/main/bootstrap.sh -o jeme-bootstrap.sh
+less jeme-bootstrap.sh
+bash jeme-bootstrap.sh
+```
+
+*(This allows you to review the lightweight bootstrap script locally before execution).*
+
+---
+
+### Manual / Git Clone Installation
+
+As an advanced alternative, you can clone the repository and run the installer manually:
+
 ```bash
 git clone https://github.com/Jenish5039/Jeme-OS-Hyperland.git ~/jeme-os
 cd ~/jeme-os
 ./install.sh
+```
+
+For non-interactive unattended installation, pass `-y`:
+```bash
+./install.sh -y
 ```
 
 ### Installation Lifecycle:

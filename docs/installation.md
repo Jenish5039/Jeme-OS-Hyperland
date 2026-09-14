@@ -37,7 +37,29 @@ Usable, Self-Contained Jeme OS Desktop
 
 ---
 
-## 3. Quick Installation
+## 3. Installation Methods
+
+### Method A: One-Line Bootstrap (Recommended)
+
+On any fresh Fedora installation, run:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Jenish5039/Jeme-OS-Hyperland/main/bootstrap.sh | bash
+```
+
+### Method B: Inspect-First Alternative (Safer)
+
+To inspect the lightweight bootstrap script before executing:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Jenish5039/Jeme-OS-Hyperland/main/bootstrap.sh -o jeme-bootstrap.sh
+less jeme-bootstrap.sh
+bash jeme-bootstrap.sh
+```
+
+---
+
+### Method C: Manual / Git Clone
 
 Clone the repository and run the master installer:
 
@@ -47,7 +69,7 @@ cd ~/jeme-os
 ./install.sh
 ```
 
-For non-interactive automated provisioning, pass the `-y` flag:
+For non-interactive automated provisioning, pass `-y`:
 ```bash
 ./install.sh -y
 ```
