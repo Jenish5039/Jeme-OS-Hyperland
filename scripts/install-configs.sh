@@ -14,8 +14,53 @@ header "Jeme OS Configuration Deployment (${MODE})"
 
 BACKUP_ROOT="${HOME}/.config/jeme-backups/$(timestamp)"
 mkdir -p "$BACKUP_ROOT"
-mkdir -p "${HOME}/.config" "${HOME}/.local/bin" "${HOME}/.local/share"
+mkdir -p "${HOME}/.config" "${HOME}/.local/bin" "${HOME}/.local/share" "${HOME}/.cache/ml4w/hyprland-dotfiles"
 
+# ------------------------------------------------------------------------------
+# 1. Preserve User Wallpaper & Hardware State Before Any Deployment
+# ------------------------------------------------------------------------------
+PRESERVE_DIR=$(mktemp -d)
+
+# Detect if user already has an active wallpaper state or configuration
+HAS_EXISTING_WALLPAPER=false
+if [[ -f "${HOME}/.cache/ml4w/hyprland-dotfiles/current_wallpaper" ]]; then
+    HAS_EXISTING_WALLPAPER=true
+    cp -p "${HOME}/.cache/ml4w/hyprland-dotfiles/current_wallpaper" "${PRESERVE_DIR}/current_wallpaper"
+fi
+
+WALLPAPER_SETTINGS=(
+    "wallpaper-mode"
+    "wallpaper-engine-config.json"
+    "wallpaper-engine-favorites.json"
+    "wallpaper-engine-recents.json"
+    "wallpaper-engine-battery-policy"
+    "wallpaper-theming"
+    "wallpaper-folder"
+    "wallpaper-effect"
+    "wallpaper-transition-effect"
+    "wallpaper-automation"
+    "blur.sh"
+    "dock.json"
+    "statusbar.json"
+)
+
+for wset in "${WALLPAPER_SETTINGS[@]}"; do
+    if [[ -f "${HOME}/.config/ml4w/settings/${wset}" ]]; then
+        cp -p "${HOME}/.config/ml4w/settings/${wset}" "${PRESERVE_DIR}/${wset}"
+    fi
+done
+
+# Preserve machine-specific Hyprland configuration if present
+if [[ -f "${HOME}/.config/hypr/monitors.lua" ]]; then
+    cp -p "${HOME}/.config/hypr/monitors.lua" "${PRESERVE_DIR}/monitors.lua"
+fi
+if [[ -f "${HOME}/.config/hypr/conf/environment.lua" ]]; then
+    cp -p "${HOME}/.config/hypr/conf/environment.lua" "${PRESERVE_DIR}/environment.lua"
+fi
+
+# ------------------------------------------------------------------------------
+# 2. Deploy Configuration Modules
+# ------------------------------------------------------------------------------
 CONFIG_MODULES=(
     "hypr"
     "quickshell"
@@ -36,7 +81,6 @@ CONFIG_MODULES=(
     "ohmyposh"
 )
 
-# 1. Backup and Deploy Configuration Directories
 for mod in "${CONFIG_MODULES[@]}"; do
     src="${REPO_DIR}/config/${mod}"
     dst="${HOME}/.config/${mod}"
@@ -61,14 +105,50 @@ for mod in "${CONFIG_MODULES[@]}"; do
     fi
 done
 
-# 2. Deploy Wallpapers
+# ------------------------------------------------------------------------------
+# 3. Restore Preserved User Wallpaper State (or Provision First-Run Defaults)
+# ------------------------------------------------------------------------------
+if [[ "$HAS_EXISTING_WALLPAPER" == true ]]; then
+    info "Preserving existing user wallpaper configuration..."
+    if [[ -f "${PRESERVE_DIR}/current_wallpaper" ]]; then
+        cp -p "${PRESERVE_DIR}/current_wallpaper" "${HOME}/.cache/ml4w/hyprland-dotfiles/current_wallpaper"
+    fi
+    for wset in "${WALLPAPER_SETTINGS[@]}"; do
+        if [[ -f "${PRESERVE_DIR}/${wset}" ]]; then
+            cp -p "${PRESERVE_DIR}/${wset}" "${HOME}/.config/ml4w/settings/${wset}"
+        fi
+    done
+else
+    info "First-run detected: Initializing default Awww wallpaper state..."
+    echo "${HOME}/.config/ml4w/wallpapers/default.jpg" > "${HOME}/.cache/ml4w/hyprland-dotfiles/current_wallpaper"
+    echo "static" > "${HOME}/.config/ml4w/settings/wallpaper-mode"
+    echo "{}" > "${HOME}/.config/ml4w/settings/wallpaper-engine-config.json"
+    echo "[]" > "${HOME}/.config/ml4w/settings/wallpaper-engine-favorites.json"
+    echo "[]" > "${HOME}/.config/ml4w/settings/wallpaper-engine-recents.json"
+fi
+
+# Restore machine-specific configs if preserved
+if [[ -f "${PRESERVE_DIR}/monitors.lua" ]]; then
+    cp -p "${PRESERVE_DIR}/monitors.lua" "${HOME}/.config/hypr/monitors.lua"
+fi
+if [[ -f "${PRESERVE_DIR}/environment.lua" ]]; then
+    cp -p "${PRESERVE_DIR}/environment.lua" "${HOME}/.config/hypr/conf/environment.lua"
+fi
+
+rm -rf "$PRESERVE_DIR"
+
+# ------------------------------------------------------------------------------
+# 4. Deploy Wallpapers (Non-destructive)
+# ------------------------------------------------------------------------------
 info "Deploying default wallpapers to ~/.config/ml4w/wallpapers/..."
 mkdir -p "${HOME}/.config/ml4w/wallpapers"
 if [[ -d "${REPO_DIR}/wallpapers" ]]; then
     cp -np "${REPO_DIR}/wallpapers/"* "${HOME}/.config/ml4w/wallpapers/" 2>/dev/null || true
 fi
 
-# 3. Deploy Local Binaries
+# ------------------------------------------------------------------------------
+# 5. Deploy Local Binaries & Runtime Apps
+# ------------------------------------------------------------------------------
 info "Deploying CLI and helper utilities to ~/.local/bin/..."
 mkdir -p "${HOME}/.local/bin"
 for b in "${REPO_DIR}/bin/"*; do
@@ -79,14 +159,15 @@ for b in "${REPO_DIR}/bin/"*; do
     fi
 done
 
-# 4. Deploy Settings App Runtime
 if [[ -d "${REPO_DIR}/config/ml4w-dotfiles-settings" ]]; then
     info "Deploying Quickshell Settings App runtime to ~/.local/share/ml4w-dotfiles-settings/..."
     mkdir -p "${HOME}/.local/share/ml4w-dotfiles-settings"
     cp -a "${REPO_DIR}/config/ml4w-dotfiles-settings/"* "${HOME}/.local/share/ml4w-dotfiles-settings/"
 fi
 
-# 5. Deploy Shell Dotfiles
+# ------------------------------------------------------------------------------
+# 6. Deploy Shell Dotfiles
+# ------------------------------------------------------------------------------
 info "Deploying shell dotfiles (~/.bashrc, ~/.zshrc)..."
 if [[ -d "${REPO_DIR}/config/shell" ]]; then
     for sf in "${REPO_DIR}/config/shell/".*; do
@@ -101,7 +182,9 @@ if [[ -d "${REPO_DIR}/config/shell" ]]; then
     done
 fi
 
-# 6. Ensure Executable Permissions
+# ------------------------------------------------------------------------------
+# 7. Ensure Executable Permissions
+# ------------------------------------------------------------------------------
 info "Ensuring executable permissions across scripts..."
 find "${HOME}/.config/ml4w/scripts" -type f -exec chmod +x {} + 2>/dev/null || true
 find "${HOME}/.config/ml4w/listeners" -type f -exec chmod +x {} + 2>/dev/null || true

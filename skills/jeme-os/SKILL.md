@@ -1,6 +1,6 @@
 ---
 name: jeme-os
-description: Specialized engineering and customization skill for the Jeme OS desktop environment (Fedora Linux + Hyprland Native Lua + ML4W + Quickshell + Matugen). Use whenever inspecting, diagnosing, maintaining, or customizing Jeme OS configuration, theming pipeline, widgets, Waybar, GTK/Qt, or hardware integrations.
+description: Specialized engineering and customization skill for the Jeme OS desktop environment (Fedora Linux + Hyprland Native Lua + ML4W + Quickshell + Matugen). Use whenever inspecting, diagnosing, maintaining, or customizing Jeme OS configuration, theming pipeline, widgets, Waybar, GTK/Qt, wallpaper subsystems, or hardware integrations.
 ---
 
 # Jeme OS — Desktop Rice Management & Agent Engineering Skill
@@ -21,6 +21,7 @@ Treat the user's system as a **working production environment**.
 6. **Real Verification**: Never declare success from exit code 0 alone. Actually verify that visible colors, UI states, and processes updated correctly.
 7. **Separate Portable vs Machine-Specific**: Never hardcode monitor names, GPU bus IDs, or user paths into portable configuration files.
 8. **Never Commit Secrets**: Never commit tokens, SSH keys, passwords, credentials, or private keys.
+9. **Wallpaper State Preservation**: Never overwrite or reset the user's active wallpaper, mode (`static` vs `wallpaper-engine`), or favorites during updates or installations. On fresh machines, initialize with the default Awww wallpaper (`default.jpg`).
 
 ---
 
@@ -33,6 +34,7 @@ Treat the user's system as a **working production environment**.
 | **Desktop Suite** | ML4W | `~/.config/ml4w/` |
 | **Shell & Widgets** | Quickshell (QML) | `~/.config/quickshell/` & `~/.local/share/ml4w-dotfiles-settings/quickshell/` |
 | **Theming Engine** | Matugen (Material 3) | `~/.config/matugen/config.toml` (19 template targets) |
+| **Wallpaper Engine**| Awww (Static) / Waywallen (Live) | `~/.config/ml4w/scripts/jeme-wallpaper-engine` & `~/.config/quickshell/WallpaperEngineApp/` |
 | **Status Bar** | Quickshell / Waybar | `~/.config/quickshell/StatusbarApp/` & `~/.config/waybar/launch.sh` |
 | **Notifications** | SwayNC | `~/.config/swaync/` |
 | **App Launcher** | Rofi (Wayland) | `~/.config/rofi/` |
@@ -44,44 +46,24 @@ Treat the user's system as a **working production environment**.
 
 ---
 
-## 3. Directory & Path Dictionary
+## 3. Wallpaper System & Portability Lifecycle
 
-```
-~/.config/hypr/                  # Hyprland Native Lua configuration
-├── hyprland.lua                 # Master entry point (requires conf modules)
-├── monitors.lua                 # Machine-specific display configuration
-├── conf/                        # Modular variant loaders
-│   ├── animation.lua            # Loads conf/animations/ variant
-│   ├── autostart.lua            # Session daemons, secrets, portal restarts
-│   ├── decoration.lua           # Loads conf/decorations/ variant
-│   ├── environment.lua          # Loads conf/environments/ variant (NVIDIA/AMD/Intel)
-│   ├── keybinding.lua           # Loads conf/keybindings/ variant
-│   ├── layout.lua               # Loads conf/layouts/ variant
-│   └── window.lua               # Loads conf/windows/ variant
-└── scripts/                     # Compositor helper scripts (gtk.sh, screenshot.sh, etc.)
+Jeme OS separates wallpaper code, default assets, user state, and machine caches:
 
-~/.config/quickshell/            # Main desktop Quickshell instance
-├── shell.qml                    # Root Shell
-├── CustomTheme/Theme.qml        # Desktop Theme singleton (reads colors.json)
-├── StatusbarApp/                # Native QtQuick status bar
-├── SidebarApp/                  # Desktop sidebar drawer (SUPER+CTRL+S)
-├── ConnectivityApp/             # Wi-Fi & Bluetooth management popup
-├── AudioApp/                    # Audio sink & source mixer popup
-├── PowerApp/                    # Power & session menu (SUPER+CTRL+P)
-├── WallpaperApp/                # Graphical wallpaper browser (SUPER+CTRL+W)
-└── overview/                    # Window switcher overview (SUPER+Tab)
+### Segregation Tiers:
+* **Engine Code (Portable)**: `jeme-wallpaper-engine`, `ml4w-wallpaper`, `ml4w-autostart`, `WallpaperEngineApp.qml`.
+* **Default Assets (Portable)**: `default.jpg` in `~/.config/ml4w/wallpapers/`.
+* **User State (Preserved)**:
+  * `~/.cache/ml4w/hyprland-dotfiles/current_wallpaper` (Active static wallpaper path)
+  * `~/.config/ml4w/settings/wallpaper-mode` (`static` or `wallpaper-engine`)
+  * `~/.config/ml4w/settings/wallpaper-engine-config.json` (Active Workshop item configuration)
+  * `~/.config/ml4w/settings/wallpaper-engine-favorites.json` & `wallpaper-engine-recents.json`
+* **Machine Cache (Ephemeral)**: `~/.cache/ml4w/wallpaper-engine/thumbnails/`, `state.json`, `power_daemon.pid`.
 
-~/.config/matugen/               # Matugen Material 3 theming engine
-├── config.toml                  # 19 template targets mapping Material 3 tokens
-└── templates/                   # Source templates for JSON, CSS, QSS, Rasi, Lua
-
-~/.config/ml4w/                  # Core ML4W & Jeme automation scripts
-├── scripts/                     # Master scripts (ml4w-wallpaper, ml4w-toggle-theme, etc.)
-├── listeners/                   # Background daemons (gtk-theme-switcher.sh, low-bat-notification.sh)
-├── listeners.sh                 # Listener supervisor script
-├── settings/                    # User toggles and persisted preferences
-└── colors/                      # Generated palette files (colors.json, primary, etc.)
-```
+### First-Run vs Existing Machine Rules:
+1. **Fresh Installation**: When no prior user wallpaper state exists, the system provisions `default.jpg` as the initial Awww wallpaper in `static` mode and pre-generates colors. Jeme Wallpaper Engine is ready for user activation.
+2. **Existing Machine**: The installer and updater detect existing configuration and preserve current wallpaper, active mode, and custom images without resetting them.
+3. **Performance**: Retain all power daemon optimizations (pause on fullscreen, lockscreen, DPMS sleep, battery saving policies). Never reintroduce unnecessary background processing or audio loops.
 
 ---
 

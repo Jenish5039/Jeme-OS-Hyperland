@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Jeme OS Rice — Update System
+# Jeme OS Rice — Safe Updater
 # ==============================================================================
 set -euo pipefail
 
@@ -46,37 +46,17 @@ for mod in "${CONFIG_MODULES[@]}"; do
     fi
 done
 
-# 3. Preserve machine-specific configurations
-TEMP_MACHINE_DIR=$(mktemp -d)
-if [[ -f "${HOME}/.config/hypr/monitors.lua" ]]; then
-    cp -p "${HOME}/.config/hypr/monitors.lua" "${TEMP_MACHINE_DIR}/monitors.lua"
-fi
-if [[ -f "${HOME}/.config/hypr/conf/environment.lua" ]]; then
-    cp -p "${HOME}/.config/hypr/conf/environment.lua" "${TEMP_MACHINE_DIR}/environment.lua"
-fi
-
-# 4. Deploy updated configurations
+# 3. Deploy updated configurations (with automatic user wallpaper & hardware state preservation)
 info "Deploying updated portable configurations..."
 "${REPO_DIR}/scripts/install-configs.sh" --copy
 
-# 5. Restore machine-specific configurations
-if [[ -f "${TEMP_MACHINE_DIR}/monitors.lua" ]]; then
-    info "Restoring preserved machine-specific monitor configuration..."
-    cp -p "${TEMP_MACHINE_DIR}/monitors.lua" "${HOME}/.config/hypr/monitors.lua"
-fi
-if [[ -f "${TEMP_MACHINE_DIR}/environment.lua" ]]; then
-    info "Restoring preserved machine-specific GPU environment configuration..."
-    cp -p "${TEMP_MACHINE_DIR}/environment.lua" "${HOME}/.config/hypr/conf/environment.lua"
-fi
-rm -rf "$TEMP_MACHINE_DIR"
-
-# 6. Re-run Matugen theme sync
+# 4. Re-run Matugen theme sync
 if has_cmd matugen; then
     info "Refreshing active Material 3 themes..."
     "${REPO_DIR}/scripts/setup-matugen.sh"
 fi
 
-# 7. Reload active desktop services if running in session
+# 5. Reload active desktop services if running in session
 if is_hyprland; then
     info "Reloading active desktop services..."
     hyprctl reload 2>/dev/null || true
@@ -88,4 +68,4 @@ if is_hyprland; then
     fi
 fi
 
-success "Jeme OS updated successfully! (Pre-update backup in ${BKP_DIR})"
+success "Jeme OS updated successfully! (Pre-update backup preserved in ${BKP_DIR})"

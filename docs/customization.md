@@ -1,6 +1,6 @@
 # Jeme OS — Customization Guide & Levers
 
-This guide details the standard customization levers and configuration points in Jeme OS.
+This guide details the standard customization levers, configuration points, and wallpaper system lifecycle in Jeme OS.
 
 ---
 
@@ -23,7 +23,38 @@ Toggle between Material 3 dark and light modes:
 
 ---
 
-## 2. Animation & Window Styling Presets
+## 2. Jeme Wallpaper Engine & Portability Architecture
+
+Jeme OS features dual wallpaper subsystems with strict state segregation:
+1. **Static Awww Wallpaper Engine**: High-performance animated transition engine for static image formats (JPG, PNG, WebP).
+2. **Jeme Live Wallpaper Engine (Waywallen)**: Full layer-shell background engine supporting Steam Workshop animated scenes, videos, and interactive presets.
+
+### State & Asset Segregation:
+
+| Tier | Items | Location | Portability Rule |
+|---|---|---|---|
+| **Engine Code** | Backend script, QML UI, templates | `~/.config/ml4w/scripts/jeme-wallpaper-engine`, `~/.config/quickshell/WallpaperEngineApp/` | **Portable** (Version controlled in repo) |
+| **Default Assets** | Baseline fallback wallpaper (`default.jpg`) | `wallpapers/default.jpg`, `~/.config/ml4w/wallpapers/` | **Portable** (Included in repo) |
+| **User Selection** | Current wallpaper path, mode, engine config, favorites | `~/.cache/ml4w/hyprland-dotfiles/current_wallpaper`, `~/.config/ml4w/settings/wallpaper-*` | **Preserved Per-User** (Never overwritten on update) |
+| **Machine Cache** | Extracted video frames, thumbnails, daemon PIDs | `~/.cache/ml4w/wallpaper-engine/`, `~/.cache/awww/` | **Generated / Machine-local** (Excluded from git) |
+
+### First-Run vs. Existing Install Lifecycle:
+
+* **Fresh Installation on New Machine**:
+  1. Installer detects that no user wallpaper configuration exists.
+  2. Sets `wallpaper-mode` to `static` and assigns `default.jpg` as the active Awww wallpaper.
+  3. Pre-generates initial Material 3 colors via Matugen.
+  4. Wallpaper Engine is initialized with clean defaults (`favorites: []`, `recents: []`).
+  5. The desktop starts immediately without missing-file errors or depending on external workshop assets.
+
+* **Existing Machine / Subsequent Updates**:
+  1. Installer and updater detect existing user wallpaper state (`current_wallpaper`, `wallpaper-engine-config.json`, active mode).
+  2. Preserves all user selections without resetting or reverting to defaults.
+  3. Does not overwrite custom wallpapers placed in `~/.config/ml4w/wallpapers/`.
+
+---
+
+## 3. Animation & Window Styling Presets
 
 Hyprland appearance is organized into hot-swappable variant presets in `~/.config/hypr/conf/`:
 
@@ -39,7 +70,7 @@ To switch an animation or window preset, edit the `local name = "..."` line in t
 
 ---
 
-## 3. Status Bar Selection (Quickshell vs Waybar)
+## 4. Status Bar Selection (Quickshell vs Waybar)
 
 ### Default: Native Quickshell Statusbar
 Quickshell provides a high-performance QtQuick status bar loaded from `~/.config/quickshell/StatusbarApp/`. It is styled live by `colors.json` and supports modules configured in `~/.config/quickshell/StatusbarApp/statusbar.json`.
@@ -61,7 +92,7 @@ To switch to Waybar:
 
 ---
 
-## 4. Keybinding Customization
+## 5. Keybinding Customization
 
 Default keybindings are defined in `~/.config/hypr/conf/keybindings/default.lua`:
 
