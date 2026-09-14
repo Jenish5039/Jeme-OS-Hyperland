@@ -2,14 +2,14 @@
 # Jeme OS Rice — Required & Recommended COPR Repositories (Fedora)
 # ==============================================================================
 
+# Hyprland ecosystem, Quickshell & Awww (Required for Quickshell & Awww on Fedora)
+lionheartp/Hyprland
+
 # SwayNotificationCenter (SwayNC)
 erikreider/SwayNotificationCenter
 
-# Nerd Fonts (JetBrainsMono, FiraCode)
+# Nerd Fonts (FiraCode, JetBrainsMono)
 che/nerd-fonts
 
 # nwg-shell tools (nwg-displays, gtk-session-lock)
 tofik/nwg-shell
-
-# Hyprland ecosystem updates (if using upstream latest builds)
-# lionheartp/Hyprland

@@ -8,26 +8,42 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET_DIR="${1:-${HOME}/.config/hypr}"
 mkdir -p "${TARGET_DIR}/conf/environments"
 
-echo -e "\033[1;34m[Jeme OS]\033[0m Detecting hardware configuration..."
+echo -e "\033[1;34m[Jeme OS]\033[0m Probing hardware environment..."
 
 # ------------------------------------------------------------------------------
-# 1. GPU Detection
+# 1. Form Factor & Power Source Detection (Laptop vs Desktop)
+# ------------------------------------------------------------------------------
+IS_LAPTOP=false
+if [[ -d /sys/class/power_supply ]]; then
+    if find /sys/class/power_supply -name "BAT*" -print -quit 2>/dev/null | grep -q .; then
+        IS_LAPTOP=true
+    fi
+fi
+
+if [[ "$IS_LAPTOP" == true ]]; then
+    echo -e "  \033[1;32m[✓]\033[0m Form Factor: \033[1mLaptop / Mobile\033[0m (Battery and Backlight active)"
+else
+    echo -e "  \033[1;32m[✓]\033[0m Form Factor: \033[1mDesktop / Workstation\033[0m"
+fi
+
+# ------------------------------------------------------------------------------
+# 2. GPU Detection & Environment Generation
 # ------------------------------------------------------------------------------
 DETECTED_GPU="default"
-if lspci -nn | grep -iE 'vga|3d|display' | grep -iq 'nvidia'; then
+if lspci -nn 2>/dev/null | grep -iE 'vga|3d|display' | grep -iq 'nvidia'; then
     DETECTED_GPU="nvidia"
     echo -e "  \033[1;32m[✓]\033[0m Detected GPU: \033[1mNVIDIA\033[0m"
-elif lspci -nn | grep -iE 'vga|3d|display' | grep -iq 'amd|radeon|advanced micro devices'; then
+elif lspci -nn 2>/dev/null | grep -iE 'vga|3d|display' | grep -iq 'amd|radeon|advanced micro devices'; then
     DETECTED_GPU="amd"
     echo -e "  \033[1;32m[✓]\033[0m Detected GPU: \033[1mAMD Radeon\033[0m"
-elif lspci -nn | grep -iE 'vga|3d|display' | grep -iq 'intel'; then
+elif lspci -nn 2>/dev/null | grep -iE 'vga|3d|display' | grep -iq 'intel'; then
     DETECTED_GPU="intel"
     echo -e "  \033[1;32m[✓]\033[0m Detected GPU: \033[1mIntel Graphics\033[0m"
 else
-    echo -e "  \033[1;33m[!]\033[0m Generic / Unknown GPU detected. Using default profile."
+    echo -e "  \033[1;33m[!]\033[0m Generic / Unknown GPU detected. Using standard Wayland profile."
 fi
 
-# Ensure environment variant files exist
+# Write environment templates
 cat << 'EOF' > "${TARGET_DIR}/conf/environments/nvidia.lua"
 hl.env("LIBVA_DRIVER_NAME", "nvidia")
 hl.env("__GLX_VENDOR_LIBRARY_NAME", "nvidia")
@@ -56,7 +72,7 @@ if [[ -f "${TARGET_DIR}/conf/environment.lua" ]]; then
 fi
 
 # ------------------------------------------------------------------------------
-# 2. Monitor Detection
+# 3. Monitor Detection & Arrangement
 # ------------------------------------------------------------------------------
 MONITORS_LUA="${TARGET_DIR}/monitors.lua"
 MONITORS_CONF="${TARGET_DIR}/monitors.conf"
@@ -77,7 +93,6 @@ if [[ ${#FOUND_MONITORS[@]} -eq 0 ]]; then
     for connector in /sys/class/drm/card*-*/status; do
         if [[ -f "$connector" ]] && grep -q '^connected' "$connector"; then
             cname=$(basename "$(dirname "$connector")" | sed -E 's/card[0-9]+-//')
-            # Check for modes
             mode_file="$(dirname "$connector")/modes"
             if [[ -f "$mode_file" ]] && [[ -s "$mode_file" ]]; then
                 top_mode=$(head -n1 "$mode_file")
@@ -89,7 +104,7 @@ if [[ ${#FOUND_MONITORS[@]} -eq 0 ]]; then
     done
 fi
 
-echo -e "\033[1;34m[Jeme OS]\033[0m Generating monitor configuration..."
+echo -e "\033[1;34m[Jeme OS]\033[0m Generating display configuration..."
 
 if [[ ${#FOUND_MONITORS[@]} -gt 0 ]]; then
     echo "-- Auto-detected display configuration by Jeme OS on $(date +'%Y-%m-%d %H:%M:%S')" > "$MONITORS_LUA"
@@ -100,7 +115,6 @@ if [[ ${#FOUND_MONITORS[@]} -gt 0 ]]; then
         m_name="${mon%%:*}"
         m_mode="${mon#*:}"
         
-        # Parse resolution and rate
         m_res="${m_mode%@*}"
         m_rate="${m_mode#*@}"
         [[ "$m_rate" == "preferred" ]] && m_rate="auto"
@@ -118,7 +132,6 @@ EOF
 
         echo "monitor = ${m_name}, ${m_res}@${m_rate}, ${pos_x}x0, 1" >> "$MONITORS_CONF"
         
-        # Increment horizontal position for multi-monitor setups
         w_px=$(echo "$m_res" | cut -d'x' -f1 2>/dev/null || echo 1920)
         [[ "$w_px" =~ ^[0-9]+$ ]] || w_px=1920
         pos_x=$((pos_x + w_px))

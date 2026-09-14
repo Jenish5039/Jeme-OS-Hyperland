@@ -1,0 +1,23 @@
+# ==============================================================================
+# Jeme OS Rice — Development & Compilation Packages (Optional)
+# Required only when compiling Quickshell, Matugen, or Hyprland plugins from source
+# ==============================================================================
+
+cargo
+rust
+golang
+gcc
+gcc-c++
+cmake
+meson
+ninja-build
+git
+make
+pkgconf-pkg-config
+systemd-devel
+pipewire-devel
+wayland-devel
+wayland-protocols-devel
+qt6-qtbase-devel
+qt6-qtdeclarative-devel
+qt6-qtquick3d-devel

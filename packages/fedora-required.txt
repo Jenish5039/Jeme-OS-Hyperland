@@ -1,5 +1,6 @@
 # ==============================================================================
 # Jeme OS Rice — Required Fedora RPM Packages
+# Self-contained Hyprland Desktop Environment Essentials
 # ==============================================================================
 
 # Core Compositor & Wayland Display Server
@@ -7,33 +8,56 @@ hyprland
 hypridle
 hyprlock
 hyprsunset
+hyprpolkitagent
 xdg-desktop-portal
 xdg-desktop-portal-hyprland
 xdg-desktop-portal-gtk
 xwayland
-hyprpolkitagent
 
 # Desktop Shell, Bars & Launchers
 quickshell
 waybar
 rofi
 kitty
+wlogout
+xsettingsd
+
+# File Manager & Storage Infrastructure (Nautilus + GVFS + Archive + Udisks2)
+nautilus
+gvfs
+gvfs-archive
+gvfs-fuse
+gvfs-mtp
+gvfs-smb
+gvfs-gphoto2
+udisks2
+file-roller
+7zip
+tar
+unzip
+zip
+bzip2
+gzip
+xdg-user-dirs
+xdg-user-dirs-gtk
 
 # Dynamic Theming & Wallpaper Daemons
 awww
 matugen
 
-# Notifications & Audio
+# Notifications, Sound & Media Control
 SwayNotificationCenter
 pipewire
 pipewire-pulse
 pipewire-alsa
-pipewire-jack
+pipewire-jack-audio-connection-kit
+pipewire-utils
 wireplumber
 pavucontrol
 libnotify
+playerctl
 
-# System Management & Utilities
+# System Management, Network & Connectivity
 NetworkManager
 network-manager-applet
 nm-connection-editor
@@ -41,17 +65,26 @@ bluez
 bluez-tools
 blueman
 brightnessctl
+
+# Clipboard & Screenshot Tools
 cliphist
 wl-clipboard
 grim
 slurp
 swappy
-fastfetch
-btop
-wlogout
-xsettingsd
 
-# Automation & Scripting Tools
+# Authentication, PAM & Secret Service
+polkit
+gnome-keyring
+gnome-keyring-pam
+libsecret
+
+# MIME, Desktop Association & Automation Utilities
+xdg-utils
+shared-mime-info
+desktop-file-utils
+dconf
+gsettings-desktop-schemas
 bash
 jq
 bc
@@ -68,6 +101,15 @@ curl
 wget
 git
 
+# Core Desktop Companion Applications (Standalone GTK/Wayland Apps)
+gnome-text-editor
+gnome-calculator
+loupe
+papers
+zenity
+fastfetch
+btop
+
 # GTK & Qt Integration
 gtk3
 gtk4
@@ -79,8 +121,7 @@ qt6-qtsvg
 qt6-qtdeclarative
 qt6-qt5compat
 qt6-qtmultimedia
-dconf
-gsettings-desktop-schemas
+papirus-icon-theme
 
 # Fonts & Typography
 fira-code-fonts

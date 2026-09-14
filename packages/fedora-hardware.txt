@@ -1,0 +1,31 @@
+# ==============================================================================
+# Jeme OS Rice — Hardware-Specific Packages (Fedora)
+# Automatically detected and selectively installed by the installer
+# ==============================================================================
+
+# NVIDIA GPU (Requires RPM Fusion non-free)
+# akmod-nvidia
+# xorg-x11-drv-nvidia-cuda
+# nvidia-vaapi-driver
+
+# AMD Radeon GPU
+# mesa-va-drivers
+# mesa-vdpau-drivers
+
+# Intel Graphics
+# intel-media-driver
+# libva-intel-driver
+
+# Laptops & Power Management
+# brightnessctl
+# power-profiles-daemon
+# tlp
+
+# External Desktop Monitors (DDC/CI Control over I2C)
+# ddcutil
+
+# Wi-Fi Hardware
+# NetworkManager-wifi
+# wpa_supplicant
+# wireless-tools
+# iw

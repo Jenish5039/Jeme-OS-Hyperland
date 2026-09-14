@@ -2,32 +2,29 @@
 # Jeme OS Rice — Optional Packages
 # ==============================================================================
 
-# Display Manager
+# Display Manager (Optional standalone login manager)
 sddm
 sddm-kcm
 
-# Advanced Display Management & Multi-Monitor GUI
+# Multi-Monitor GUI Configuration
 nwg-displays
 
-# Audio Effects & Equalizers
+# Audio Equalization & Post-Processing
 easyeffects
 
-# Game Mode & Performance
+# Gaming Performance Daemon
 gamemode
 
 # OCR & Screenshot Utilities
 tesseract
 tesseract-langpack-eng
+pinta
 
-# Shell enhancements & Prompts
+# Animated Wallpaper Utilities
+mpv
+mpvpaper
+
+# Alternative Shells
 fish
 zsh
 starship
-
-# Hardware Acceleration & GPU Tools
-switcheroo-control
-nvtop
-libva-utils
-vdpauinfo
-mesa-va-drivers
-mesa-vdpau-drivers
