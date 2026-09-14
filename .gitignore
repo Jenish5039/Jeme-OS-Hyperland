@@ -1,0 +1,51 @@
+# ==============================================================================
+# Jeme OS Rice — .gitignore
+# ==============================================================================
+
+# Backup files generated during runtime/edits
+*.backup*
+*.bak*
+*.save*
+*~
+*.swp
+*.swo
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Runtime & dynamic color generation caches
+*.cache/
+.cache/
+/cache/
+wal/
+awww/
+
+# Secrets, private keys & credentials (NEVER COMMIT)
+*.key
+*.pem
+*.pub
+*.token
+*.env
+*.env.local
+id_rsa
+id_ed25519
+*.kdbx
+
+# Machine-specific transient states
+/machine/local/
+*.local.lua
+*.local.conf
+
+# Log files
+*.log
+ml4w-autostart.log
+wayland-errors
+xsession-errors
+
+# OS / Editor generated
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

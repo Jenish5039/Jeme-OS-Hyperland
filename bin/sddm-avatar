@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+SOURCE="$HOME/.lock logo/Lock.png"
+DEST="/var/lib/AccountsService/icons/$USER"
+
+if [[ ! -f "$SOURCE" ]]; then
+    echo "❌ Avatar not found: $SOURCE"
+    exit 1
+fi
+
+sudo cp "$SOURCE" "$DEST"
+sudo chown root:root "$DEST"
+sudo chmod 644 "$DEST"
+
+echo "✅ SDDM avatar updated from:"
+echo "   $SOURCE"

@@ -1,0 +1,186 @@
+#!/usr/bin/env bash
+
+# Default variables
+CACHE_FOLDER="$HOME/.cache/ml4w/hyprland-dotfiles"
+CACHE_FILE="$CACHE_FOLDER/current_wallpaper"
+DEFAULT_WALLPAPER="$HOME/.config/ml4w/wallpapers/default.jpg"
+AWWW_DAEMON_VERSION="$(awww-daemon --version 2>/dev/null | awk '{ print $2 }')"
+AWWW_CACHE_FOLDER="${XDG_CACHE_HOME:-"$HOME/.cache"}/awww/$AWWW_DAEMON_VERSION"
+
+# Colors for UI
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+# --- UI Functions (Redirected to stderr) ---
+info() { echo -e "${GREEN}[INFO]${NC} $1" >&2; }
+warn() { echo -e "${YELLOW}[WARN]${NC} $1" >&2; }
+error() { echo -e "${RED}[ERROR]${NC} $1" >&2; }
+
+# Ensure that cache folder exists
+mkdir -p $HOME/.cache
+
+# Set Wallpaper
+mkdir -p $CACHE_FOLDER
+if [ ! -f $CACHE_FILE ]; then
+    touch $CACHE_FILE
+    echo "$DEFAULT_WALLPAPER" > "$CACHE_FILE"
+    info "Cache file created"
+fi
+
+# Start blueman-applet
+if ! pgrep -x "blueman-applet" >/dev/null 2>&1; then
+    blueman-applet &
+fi
+
+# Start nmapplet
+if ! pgrep -x "nm-applet" >/dev/null 2>&1; then
+    nm-applet --indicator &
+fi
+
+# Quickshell reads its icon theme from QS_ICON_THEME, not from GTK. Hyprland
+# normally exports it (conf/environment.lua); fall back to reading the GTK
+# settings here so a manual run of this script still themes the dock icons.
+if [ -z "$QS_ICON_THEME" ]; then
+    GTK_SETTINGS="$HOME/.config/gtk-3.0/settings.ini"
+    if [ -f "$GTK_SETTINGS" ]; then
+        ICON_THEME="$(grep 'gtk-icon-theme-name' "$GTK_SETTINGS" | sed 's/.*\s*=\s*//')"
+        [ -n "$ICON_THEME" ] && export QS_ICON_THEME="$ICON_THEME"
+    fi
+fi
+info "Quickshell icon theme: ${QS_ICON_THEME:-<unset>}"
+
+# ============================================================
+# Prepare wallpaper theme BEFORE starting Quickshell
+# ============================================================
+# Matugen must finish first so Quickshell starts with the
+# correct colors instead of briefly showing the old theme.
+
+CURRENT_WALLPAPER="$(cat "$CACHE_FILE")"
+
+SETTINGS_WALLPAPER_THEMING="$HOME/.config/ml4w/settings/wallpaper-theming"
+WALLPAPER_THEMING=true
+if [ -f "$SETTINGS_WALLPAPER_THEMING" ]; then
+    THEMING_PREF=$(tr '[:upper:]' '[:lower:]' < "$SETTINGS_WALLPAPER_THEMING" | tr -d '[:space:]')
+    if [[ "$THEMING_PREF" == "0" || "$THEMING_PREF" == "false" || "$THEMING_PREF" == "off" || "$THEMING_PREF" == "no" ]]; then
+        WALLPAPER_THEMING=false
+    fi
+fi
+
+SETTINGS_WALLPAPER_MODE="$HOME/.config/ml4w/settings/wallpaper-mode"
+WALLPAPER_MODE="static"
+if [ -f "$SETTINGS_WALLPAPER_MODE" ]; then
+    RAW_MODE=$(tr '[:upper:]' '[:lower:]' < "$SETTINGS_WALLPAPER_MODE" | tr -d '[:space:]')
+    if [[ "$RAW_MODE" == *"wallpaper-engine"* || "$RAW_MODE" == *"wallpaper_engine"* ]]; then
+        WALLPAPER_MODE="wallpaper-engine"
+    fi
+fi
+
+if [ "$WALLPAPER_MODE" = "wallpaper-engine" ]; then
+    info "Active wallpaper mode: Wallpaper Engine"
+
+    if [ "$WALLPAPER_THEMING" = true ]; then
+        SAVED_CFG="$HOME/.config/ml4w/settings/wallpaper-engine-config.json"
+        if [ -f "$SAVED_CFG" ]; then
+            SAVED_ID=$(jq -r '.id // empty' "$SAVED_CFG" 2>/dev/null || true)
+            if [ -n "$SAVED_ID" ]; then
+                info "Generating startup theme from Wallpaper Engine item: $SAVED_ID"
+                jeme-wallpaper-engine apply-theme "$SAVED_ID" >/dev/null 2>&1 || true
+            fi
+        fi
+    fi
+    jeme-wallpaper-engine autostart &
+else
+    info "Active wallpaper mode: Static (awww)"
+    # Ensure awww-daemon is running for static wallpaper display
+    if ! pgrep -x "awww-daemon" >/dev/null 2>&1; then
+        awww-daemon &
+        sleep 0.2
+    fi
+
+    if [ "$WALLPAPER_THEMING" = true ]; then
+        info "Preparing startup theme from: $CURRENT_WALLPAPER"
+
+        if [[ -z $(find "$AWWW_CACHE_FOLDER" -mindepth 1 -maxdepth 1 -type f -print -quit 2>/dev/null) ]]; then
+            info "Setting wallpaper and generating startup theme"
+
+            ~/.config/ml4w/scripts/ml4w-wallpaper \
+                "$CURRENT_WALLPAPER" \
+                --startup
+        else
+            info "awww cache present, generating startup theme only"
+
+            ~/.config/ml4w/scripts/ml4w-wallpaper \
+                "$CURRENT_WALLPAPER" \
+                --skip-wallpaper \
+                --startup
+        fi
+    else
+        info "Wallpaper theming is disabled ($SETTINGS_WALLPAPER_THEMING)"
+        if [[ -z $(find "$AWWW_CACHE_FOLDER" -mindepth 1 -maxdepth 1 -type f -print -quit 2>/dev/null) ]]; then
+            info "Setting wallpaper only (skipping theme update)"
+
+            ~/.config/ml4w/scripts/ml4w-wallpaper \
+                "$CURRENT_WALLPAPER" \
+                --skip-theming \
+                --startup
+        else
+            info "awww cache present and wallpaper theming disabled; skipping startup wallpaper theme generation"
+        fi
+    fi
+fi
+
+# ============================================================
+# Start Quickshell AFTER Matugen
+# ============================================================
+killall qs 2>/dev/null || true
+
+info "Starting Quickshell"
+qs -d
+
+info "Waiting for Quickshell..."
+
+timeout=15
+elapsed=0
+
+until pgrep -x qs >/dev/null 2>&1; do
+    sleep 0.2
+    elapsed=$((elapsed + 1))
+
+    if [ $elapsed -ge $((timeout * 5)) ]; then
+        warn "Quickshell did not start within ${timeout}s"
+        break
+    fi
+done
+
+info "Quickshell started with pre-generated theme"
+
+# Start ML4W Settings App
+info "Starting ML4W Dotfiles Settings"
+PROFILE="com.ml4w.dotfiles" qs -p "$HOME/.local/share/ml4w-dotfiles-settings/quickshell" -d
+info "ML4W Dotfiles Settings started"
+
+# Start Quickshell Overview
+info "Starting Quickshell Overview"
+qs -p "$HOME/.config/quickshell/overview" -d
+info "Quickshell Overview started"
+
+# Start ML4W Welcome App
+info "Starting ML4W Welcome App"
+if [ ! -f $HOME/.cache/ml4w-welcome-autostart ]; then
+    timeout=30
+    count=0
+    sleep 1
+    until qs ipc call welcome toggle >/dev/null 2>&1; do
+        (( count++ ))
+        if (( count >= timeout )); then
+            warn "Welcome IPC not available after ${timeout}s"
+            break
+        fi
+        sleep 1
+    done
+    info "ML4W Welcome started"
+else
+    info "ML4W Welcome disabled"
+fi

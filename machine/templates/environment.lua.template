@@ -1,0 +1,5 @@
+-- Jeme OS Hardware Environment Variables Template
+-- Active variant is loaded from ~/.config/hypr/conf/environments/<variant>.lua
+
+local name = "nvidia.lua" -- Options: "nvidia.lua", "amd.lua", "intel.lua", "default.lua", "kvm.lua"
+load_variant(name, "environments")

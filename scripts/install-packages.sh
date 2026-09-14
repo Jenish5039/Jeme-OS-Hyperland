@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# Jeme OS Rice — Package Installer (Fedora)
+# ==============================================================================
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+source "${SCRIPT_DIR}/lib/common.sh"
+
+header "Jeme OS Package Installation"
+
+if ! is_fedora; then
+    warn "Non-Fedora distribution detected. Package installation via DNF may fail."
+    read -rp "Continue anyway? [y/N]: " confirm
+    [[ "$confirm" =~ ^[Yy]$ ]] || exit 1
+fi
+
+require_sudo
+
+# 1. Enable Required Copr Repositories
+info "Enabling required Copr repositories..."
+if [[ -f "${REPO_DIR}/packages/copr-repos.txt" ]]; then
+    while IFS= read -r repo || [[ -n "$repo" ]]; do
+        # skip comments and empty lines
+        [[ "$repo" =~ ^[[:space:]]*# ]] && continue
+        [[ -z "${repo// }" ]] && continue
+        
+        info "Enabling Copr repo: $repo"
+        sudo dnf copr enable -y "$repo" || warn "Failed to enable Copr repo: $repo (ignoring)"
+    done < "${REPO_DIR}/packages/copr-repos.txt"
+fi
+
+# 2. Install Required RPM Packages
+info "Installing required RPM packages..."
+if [[ -f "${REPO_DIR}/packages/fedora-required.txt" ]]; then
+    PACKAGES=()
+    while IFS= read -r pkg || [[ -n "$pkg" ]]; do
+        [[ "$pkg" =~ ^[[:space:]]*# ]] && continue
+        [[ -z "${pkg// }" ]] && continue
+        PACKAGES+=("$pkg")
+    done < "${REPO_DIR}/packages/fedora-required.txt"
+
+    if [[ ${#PACKAGES[@]} -gt 0 ]]; then
+        sudo dnf install -y "${PACKAGES[@]}" || warn "Some packages encountered issues during installation."
+    fi
+fi
+
+# 3. Ensure Matugen is available
+if ! has_cmd matugen; then
+    info "Installing Matugen color generator..."
+    if has_cmd cargo; then
+        cargo install matugen || warn "Failed to install matugen via cargo"
+    elif has_cmd dnf; then
+        sudo dnf copr enable -y errornointernet/ripgrep || true
+        sudo dnf install -y matugen || warn "Matugen package not found in repos. You can install via 'cargo install matugen'."
+    fi
+fi
+
+success "Package installation completed."

@@ -1,0 +1,92 @@
+# ==============================================================================
+# Jeme OS Rice — Required Fedora RPM Packages
+# ==============================================================================
+
+# Core Compositor & Wayland Display Server
+hyprland
+hypridle
+hyprlock
+hyprsunset
+xdg-desktop-portal
+xdg-desktop-portal-hyprland
+xdg-desktop-portal-gtk
+xwayland
+hyprpolkitagent
+
+# Desktop Shell, Bars & Launchers
+quickshell
+waybar
+rofi
+kitty
+
+# Dynamic Theming & Wallpaper Daemons
+awww
+matugen
+
+# Notifications & Audio
+SwayNotificationCenter
+pipewire
+pipewire-pulse
+pipewire-alsa
+pipewire-jack
+wireplumber
+pavucontrol
+libnotify
+
+# System Management & Utilities
+NetworkManager
+network-manager-applet
+nm-connection-editor
+bluez
+bluez-tools
+blueman
+brightnessctl
+cliphist
+wl-clipboard
+grim
+slurp
+swappy
+fastfetch
+btop
+wlogout
+xsettingsd
+
+# Automation & Scripting Tools
+bash
+jq
+bc
+inotify-tools
+ImageMagick
+findutils
+coreutils
+procps-ng
+psmisc
+gawk
+sed
+which
+curl
+wget
+git
+
+# GTK & Qt Integration
+gtk3
+gtk4
+adw-gtk3-theme
+qt5ct
+qt6ct
+qt6-qtwayland
+qt6-qtsvg
+qt6-qtdeclarative
+qt6-qt5compat
+qt6-qtmultimedia
+dconf
+gsettings-desktop-schemas
+
+# Fonts & Typography
+fira-code-fonts
+google-noto-sans-fonts
+google-noto-serif-fonts
+google-noto-emoji-fonts
+abattis-cantarell-fonts
+fontawesome-6-free-fonts
+fontawesome-6-brands-fonts

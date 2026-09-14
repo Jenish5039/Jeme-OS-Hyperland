@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+if [[ -f "${HOME}/.local/lib/libquickshell-qt-compat.so" ]]; then
+    export LD_PRELOAD="${HOME}/.local/lib/libquickshell-qt-compat.so${LD_PRELOAD:+:$LD_PRELOAD}"
+fi
+exec -a qs /usr/bin/quickshell "$@"

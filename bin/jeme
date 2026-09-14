@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# Jeme OS — Master Rice CLI Management Utility
+# ==============================================================================
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(cd "${SCRIPT_DIR}/.." 2>/dev/null || pwd)"
+
+# Resolve actual repo directory if invoked from ~/.local/bin
+if [[ ! -d "${REPO_DIR}/config" && -d "${HOME}/Jeme OS Rice" ]]; then
+    REPO_DIR="${HOME}/Jeme OS Rice"
+fi
+
+source "${REPO_DIR}/scripts/lib/common.sh" 2>/dev/null || {
+    info() { echo "[INFO] $*"; }
+    success() { echo "[✓] $*"; }
+    warn() { echo "[WARN] $*" >&2; }
+    error() { echo "[ERROR] $*" >&2; }
+    header() { echo -e "\n=== $* ===\n"; }
+}
+
+show_help() {
+    cat << 'EOF'
+Jeme OS Rice CLI — Management & Operations Tool
+
+Usage:
+  jeme <command> [arguments...]
+
+Available Commands:
+  install       Run the full Jeme OS rice installer
+  update        Pull latest repository changes and update configs safely
+  backup        Create a timestamped backup of current desktop configurations
+  restore       Restore configurations from a previous backup directory
+  detect        Probe hardware (GPU, monitors) and generate machine settings
+  doctor        Run diagnostics and verify desktop stack health
+  theme         Switch wallpaper and re-generate dynamic Material 3 colors
+  info          Display system, compositor, and rice version details
+  help          Show this help message
+
+Examples:
+  jeme doctor
+  jeme detect
+  jeme theme ~/Pictures/wallpapers/nature.jpg
+  jeme backup
+  jeme update
+EOF
+}
+
+cmd="${1:-help}"
+shift || true
+
+case "$cmd" in
+    install)
+        "${REPO_DIR}/install.sh" "$@"
+        ;;
+    update)
+        "${REPO_DIR}/update.sh" "$@"
+        ;;
+    backup)
+        "${REPO_DIR}/backup.sh" "$@"
+        ;;
+    restore)
+        "${REPO_DIR}/restore.sh" "$@"
+        ;;
+    detect)
+        "${REPO_DIR}/machine/detect.sh" "$@"
+        ;;
+    doctor)
+        "${REPO_DIR}/scripts/doctor.sh" "$@"
+        ;;
+    theme)
+        if [[ $# -eq 0 ]]; then
+            echo "Usage: jeme theme <path_to_wallpaper_image>"
+            exit 1
+        fi
+        "${HOME}/.config/ml4w/scripts/ml4w-wallpaper" "$1"
+        ;;
+    info)
+        header "Jeme OS Rice Information"
+        echo -e "  \033[1mOS:\033[0m          $(grep -E '^PRETTY_NAME=' /etc/os-release | cut -d= -f2 | tr -d '\"')"
+        echo -e "  \033[1mKernel:\033[0m      $(uname -r)"
+        echo -e "  \033[1mCompositor:\033[0m  $(Hyprland --version 2>/dev/null | head -n1 || echo 'Hyprland')"
+        echo -e "  \033[1mShell:\033[0m       Quickshell ($(quickshell --version 2>/dev/null || echo '0.3+'))"
+        echo -e "  \033[1mTheme Engine:\033[0m Matugen (Material 3 Dynamic Theming)"
+        echo -e "  \033[1mRepo Path:\033[0m   ${REPO_DIR}"
+        ;;
+    help|--help|-h)
+        show_help
+        ;;
+    *)
+        error "Unknown command: ${cmd}"
+        show_help
+        exit 1
+        ;;
+esac

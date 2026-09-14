@@ -1,0 +1,9 @@
+# ==============================================================================
+# Jeme OS Rice — Recommended Flatpaks
+# ==============================================================================
+
+# Easy Effects (Audio post-processing & equalizer)
+com.github.wwmm.easyeffects
+
+# pwvucontrol (PipeWire Volume Control GUI)
+io.github.saivert.pwvucontrol

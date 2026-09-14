@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+
+ACTIVE_INFO=$(hyprctl activewindow -j 2>/dev/null)
+TERMINAL_ADDR=$(echo "$ACTIVE_INFO" | jq -r 'select(.title != "agy" and (.class == "kitty" or .class == "foot" or .class == "Alacritty" or .class == "org.wezfurlong.wezterm" or .class == "ghostty")) | .address // empty')
+
+if [[ $# -eq 0 ]]; then
+    echo "Usage: nvi <application> [arguments...]"
+    exit 1
+fi
+
+# Set complete NVIDIA PRIME offload & NVDEC hardware acceleration environment
+export __NV_PRIME_RENDER_OFFLOAD=1
+export __GLX_VENDOR_LIBRARY_NAME=nvidia
+export __VK_LAYER_NV_optimus=NVIDIA_only
+export VK_LOADER_DRIVERS_SELECT=*nvidia*
+export LIBVA_DRIVER_NAME=nvidia
+export NVD_BACKEND=direct
+export MOZ_DISABLE_RDD_SANDBOX=1
+export CUDA_DISABLE_PERF_BOOST=1
+
+if [[ -f /usr/share/glvnd/egl_vendor.d/10_nvidia.json ]]; then
+    export __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json
+fi
+
+# Start the application through switcherooctl
+nohup switcherooctl launch "$@" > /tmp/nvi-error.log 2>&1 &
+disown
+
+# Launch succeeded / is starting → close caller terminal if one exists
+if [[ -n "$TERMINAL_ADDR" && "$TERMINAL_ADDR" != "null" ]]; then
+    sleep 0.2
+    hyprctl dispatch closewindow "address:$TERMINAL_ADDR" >/dev/null 2>&1
+fi
