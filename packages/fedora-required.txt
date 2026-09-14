@@ -12,7 +12,7 @@ hyprpolkitagent
 xdg-desktop-portal
 xdg-desktop-portal-hyprland
 xdg-desktop-portal-gtk
-xwayland
+xorg-x11-server-Xwayland
 
 # Desktop Shell, Bars & Launchers
 quickshell
@@ -48,7 +48,7 @@ matugen
 # Notifications, Sound & Media Control
 SwayNotificationCenter
 pipewire
-pipewire-pulse
+pipewire-pulseaudio
 pipewire-alsa
 pipewire-jack-audio-connection-kit
 pipewire-utils
@@ -98,7 +98,7 @@ gawk
 sed
 which
 curl
-wget
+wget2
 git
 
 # Core Desktop Companion Applications (Standalone GTK/Wayland Apps)

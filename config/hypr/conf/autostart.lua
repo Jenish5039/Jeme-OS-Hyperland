@@ -17,11 +17,11 @@ hl.on("hyprland.start", function ()
     -- Synchronously export variables to systemd and D-Bus before restarting portals
     hl.exec_cmd("bash -c \"dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP GNOME_KEYRING_CONTROL SSH_AUTH_SOCK DISPLAY XDG_SESSION_TYPE XDG_SESSION_DESKTOP && systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP GNOME_KEYRING_CONTROL SSH_AUTH_SOCK DISPLAY XDG_SESSION_TYPE XDG_SESSION_DESKTOP && systemctl --user reset-failed xdg-desktop-portal-hyprland xdg-desktop-portal 2>/dev/null || true && systemctl --user restart xdg-desktop-portal-hyprland xdg-desktop-portal\"")
 
-    -- Start Sunshine streaming daemon
-    hl.exec_cmd("systemctl --user start sunshine.service")
+    -- Start Sunshine streaming daemon (guarded if service exists)
+    hl.exec_cmd("bash -c 'systemctl --user is-enabled sunshine.service >/dev/null 2>&1 && systemctl --user start sunshine.service 2>/dev/null || true'")
 
-    -- Start Easy Effects in background service mode
-    hl.exec_cmd("flatpak run com.github.wwmm.easyeffects --hide-window --service-mode")
+    -- Start Easy Effects in background service mode (guarded if flatpak exists)
+    hl.exec_cmd("bash -c 'flatpak info com.github.wwmm.easyeffects >/dev/null 2>&1 && flatpak run com.github.wwmm.easyeffects --hide-window --service-mode >/dev/null 2>&1 || true'")
 
     -- Wallpaper daemon (managed authoritatively by ml4w-autostart based on persisted mode)
     -- hl.exec_cmd("awww-daemon")
@@ -36,15 +36,15 @@ hl.on("hyprland.start", function ()
     -- hl.exec_cmd(HOME .. "/.config/waybar/launch.sh")
 
     -- Start Hyprland Polkit authentication agent
-    hl.exec_cmd("systemctl --user start hyprpolkitagent.service")
+    hl.exec_cmd("systemctl --user start hyprpolkitagent.service 2>/dev/null || /usr/libexec/hyprpolkitagent &")
 
     -- Restore wallpaper (skip for quickshell — handled inside ml4w-autostart)
     if wallpaper_app ~= "quickshell" then
         hl.exec_cmd("~/.config/ml4w/scripts/ml4w-wallpaper-app --restore")
     end
 
-    -- Autostart scripts
-    hl.exec_cmd("~/.config/ml4w/scripts/ml4w-autostart > ~/.mydotfiles/ml4w-autostart.log 2>&1")
+    -- Autostart scripts (standard ~/.cache/ml4w/ logging directory)
+    hl.exec_cmd("bash -c 'mkdir -p ~/.cache/ml4w && ~/.config/ml4w/scripts/ml4w-autostart > ~/.cache/ml4w/ml4w-autostart.log 2>&1'")
 
     -- Load GTK settings
     hl.exec_cmd("~/.config/hypr/scripts/gtk.sh")
