@@ -11,7 +11,7 @@ Default configuration file for the Quickshell Statusbar.
     "pill": {
         "collapsedWidth": 0,
         "expandedWidth": 0.94,
-        "radius": 19,
+        "radius": 12,
         "animationDuration": 350
     },
     "modules": {

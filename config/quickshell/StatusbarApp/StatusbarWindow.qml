@@ -47,7 +47,7 @@ PanelWindow {
     // or entirely missing file still leaves every value defined.
     readonly property var defaultSettings: ({
         "bar":    { "height": 38, "reservedHeight": 50, "enabled": true, "alwaysExpanded": true },
-        "pill":   { "collapsedWidth": 0, "expandedWidth": 0.94, "radius": 19, "animationDuration": 350 },
+        "pill":   { "collapsedWidth": 0, "expandedWidth": 0.94, "radius": 12, "animationDuration": 350 },
         "modules":{ "left": ["workspaces", "terminal"],
                     "center": ["launcher", "clock", "swaync"],
                     "right": ["updates", "battery", "powerprofile", "volume", "systemtray", "logo", "power"] },
