@@ -265,6 +265,7 @@ PanelWindow {
         id: actBtn
         property string iconTxt: ""
         property string iconSrc: ""
+        property bool animating: false
         implicitWidth: 28
         implicitHeight: 28
         hoverEnabled: true
@@ -279,6 +280,7 @@ PanelWindow {
         }
         contentItem: Item {
             Text {
+                id: iconTextItem
                 anchors.centerIn: parent
                 text: actBtn.iconTxt
                 visible: actBtn.iconSrc === ""
@@ -287,6 +289,23 @@ PanelWindow {
                 font.pixelSize: 16
                 verticalAlignment: Text.AlignVCenter
                 horizontalAlignment: Text.AlignHCenter
+                transformOrigin: Item.Center
+
+                NumberAnimation on rotation {
+                    running: actBtn.animating
+                    from: 0
+                    to: 360
+                    duration: 1200
+                    loops: Animation.Infinite
+                }
+            }
+            Connections {
+                target: actBtn
+                function onAnimatingChanged() {
+                    if (!actBtn.animating) {
+                        iconTextItem.rotation = 0
+                    }
+                }
             }
             Image {
                 anchors.centerIn: parent
@@ -395,7 +414,7 @@ PanelWindow {
 
                 // Fallback action button: nm-connection-editor
                 ActionIcon {
-                    iconTxt: "󰑓"
+                    iconTxt: "󱛄"
                     ToolTip.visible: hovered
                     ToolTip.text: "Network Settings"
                     onClicked: {
@@ -626,9 +645,10 @@ PanelWindow {
                             Item { Layout.fillWidth: true }
 
                             ActionIcon {
-                                iconTxt: (root.wifiDevice && root.wifiDevice.scannerEnabled) ? "󰑐" : "󰑐"
+                                iconTxt: "󰑐"
+                                animating: Boolean(root.wifiDevice && root.wifiDevice.scannerEnabled)
                                 ToolTip.visible: hovered
-                                ToolTip.text: "Scan Networks"
+                                ToolTip.text: (root.wifiDevice && root.wifiDevice.scannerEnabled) ? "Scanning Networks..." : "Scan Networks"
                                 onClicked: {
                                     if (root.wifiDevice) {
                                         root.wifiDevice.scannerEnabled = true
@@ -764,12 +784,38 @@ PanelWindow {
                                         strength: net ? (net.signalStrength || 0) : 0
                                     }
 
-                                    Text {
-                                        text: (net && net.stateChanging) ? "󰑐" : ""
-                                        color: Theme.primary
-                                        font.family: "monospace"
-                                        font.pixelSize: 14
-                                        visible: Boolean(net && net.stateChanging)
+                                    Item {
+                                        id: rowSpinnerItem
+                                        implicitWidth: 16
+                                        implicitHeight: 16
+                                        visible: Boolean(net && (net.stateChanging || (net.state !== undefined && net.state === ConnectionState.Connecting)))
+
+                                        Text {
+                                            id: rowSpinnerText
+                                            anchors.centerIn: parent
+                                            text: "󰑐"
+                                            color: Theme.primary
+                                            font.family: "monospace"
+                                            font.pixelSize: 14
+                                            transformOrigin: Item.Center
+
+                                            NumberAnimation on rotation {
+                                                running: rowSpinnerItem.visible
+                                                from: 0
+                                                to: 360
+                                                duration: 1000
+                                                loops: Animation.Infinite
+                                            }
+                                        }
+
+                                        Connections {
+                                            target: rowSpinnerItem
+                                            function onVisibleChanged() {
+                                                if (!rowSpinnerItem.visible) {
+                                                    rowSpinnerText.rotation = 0
+                                                }
+                                            }
+                                        }
                                     }
                                 }
 
@@ -867,6 +913,7 @@ PanelWindow {
 
                             ActionIcon {
                                 iconTxt: (root.btAdapter && root.btAdapter.discovering) ? "󰑐" : "󰍉"
+                                animating: Boolean(root.btAdapter && root.btAdapter.discovering)
                                 ToolTip.visible: hovered
                                 ToolTip.text: (root.btAdapter && root.btAdapter.discovering) ? "Stop Scan" : "Scan Devices"
                                 onClicked: {
