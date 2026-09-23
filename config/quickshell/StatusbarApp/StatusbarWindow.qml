@@ -48,7 +48,7 @@ PanelWindow {
     readonly property var defaultSettings: ({
         "bar":    { "height": 38, "reservedHeight": 50, "enabled": true, "alwaysExpanded": true },
         "pill":   { "collapsedWidth": 0, "expandedWidth": 0.94, "radius": 12, "animationDuration": 350 },
-        "modules":{ "left": ["workspaces", "terminal"],
+        "modules":{ "left": ["workspaces", "terminal", "cava"],
                     "center": ["launcher", "clock", "swaync"],
                     "right": ["updates", "battery", "powerprofile", "volume", "systemtray", "logo", "power"] },
         "border": { "width": 1.5, "colorTop": "", "colorBottom": "" },
@@ -267,6 +267,12 @@ PanelWindow {
     Component { id: cPower;      PowerModule {} }
     Component { id: cVolume;     VolumeModule {} }
     Component {
+        id: cCava
+        CavaModule {
+            onCollapsedChanged: Qt.callLater(root.rebuildNavItems)
+        }
+    }
+    Component {
         id: cUpdates
         UpdatesModule {
             // Rebuild the keyboard navigation list when the module hides or
@@ -295,6 +301,7 @@ PanelWindow {
         "power":      cPower,
         "updates":      cUpdates,
         "volume":       cVolume,
+        "cava":         cCava,
         "battery":      cBattery,
         "powerprofile": cPowerProfile
     })
@@ -591,6 +598,7 @@ PanelWindow {
                 Loader {
                     Layout.alignment: Qt.AlignVCenter
                     sourceComponent: root.moduleComponents[modelData] || null
+                    visible: (item && item.collapsed !== undefined) ? !item.collapsed : true
                     onLoaded: Qt.callLater(root.rebuildNavItems)
                 }
             }
@@ -610,6 +618,7 @@ PanelWindow {
                 Loader {
                     Layout.alignment: Qt.AlignVCenter
                     sourceComponent: root.moduleComponents[modelData] || null
+                    visible: (item && item.collapsed !== undefined) ? !item.collapsed : true
                     onLoaded: Qt.callLater(root.rebuildNavItems)
                 }
             }

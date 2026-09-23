@@ -1,7 +1,15 @@
 {
     "dock": {
         "enabled": true,
-        "autohide": false
+        "autohide": false,
+        "iconSize": 32,
+        "spacing": 8,
+        "marginBottom": 10,
+        "reserveSpace": true
+    },
+    "pill": {
+        "radius": 16,
+        "padding": 12
     },
     "apps": {
         "pinned": [
@@ -9,7 +17,8 @@
             "org.gnome.Nautilus",
             "org.gnome.Calculator",
             "brave-browser",
-            "code"
+            "code",
+            "com.spotify.Client"
         ]
     }
 }

@@ -1,0 +1,544 @@
+#!/usr/bin/env python3
+"""
+Jeme OS — Automatic Power Mode Switcher
+Authoritative power-profile manager for AC and Battery transitions.
+
+Rules:
+- AC connected      -> Balanced mode ('balanced')
+- Battery / AC off  -> Power Save mode ('power-saver')
+- Event-driven via UPower D-Bus and systemd login1 (0% CPU polling)
+- Fallback sysfs hardware verification
+- Integrates with TuneD / power-profiles-daemon / Quickshell
+"""
+
+import os
+import sys
+import time
+import signal
+import argparse
+import subprocess
+from pathlib import Path
+
+# PyGObject / GLib / Gio for native D-Bus integration
+try:
+    import gi
+    gi.require_version("Gio", "2.0")
+    gi.require_version("GLib", "2.0")
+    from gi.repository import Gio, GLib
+    HAS_GIO = True
+except ImportError:
+    HAS_GIO = False
+
+POWER_PROFILES_BUS_NAME = "net.hadess.PowerProfiles"
+POWER_PROFILES_OBJ_PATH = "/net/hadess/PowerProfiles"
+POWER_PROFILES_INTERFACE = "net.hadess.PowerProfiles"
+DBUS_PROPS_INTERFACE = "org.freedesktop.DBus.Properties"
+
+UPOWER_BUS_NAME = "org.freedesktop.UPower"
+UPOWER_OBJ_PATH = "/org/freedesktop/UPower"
+UPOWER_INTERFACE = "org.freedesktop.UPower"
+
+LOGIN1_BUS_NAME = "org.freedesktop.login1"
+LOGIN1_OBJ_PATH = "/org/freedesktop/login1"
+LOGIN1_INTERFACE = "org.freedesktop.login1.Manager"
+
+STATE_DIR = Path.home() / ".cache" / "jeme-power-switcher"
+LOG_FILE = STATE_DIR / "switcher.log"
+
+
+def log(msg: str):
+    """Write timestamped log to stdout and logfile."""
+    ts = time.strftime("%Y-%m-%d %H:%M:%S")
+    line = f"[{ts}] [JemePowerSwitcher] {msg}"
+    print(line, flush=True)
+    try:
+        STATE_DIR.mkdir(parents=True, exist_ok=True)
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(line + "\n")
+    except Exception:
+        pass
+
+
+def check_sysfs_ac_online() -> bool | None:
+    """
+    Check kernel sysfs power_supply devices directly.
+    Returns True if any Mains/USB supply has online == 1,
+    False if supplies exist but none are online,
+    or None if unable to determine.
+    """
+    psy_dir = Path("/sys/class/power_supply")
+    if not psy_dir.is_dir():
+        return None
+
+    found_supply = False
+    try:
+        for dev in psy_dir.iterdir():
+            online_file = dev / "online"
+            type_file = dev / "type"
+            if online_file.is_file():
+                try:
+                    val = int(online_file.read_text(encoding="utf-8").strip())
+                    dev_type = type_file.read_text(encoding="utf-8").strip() if type_file.is_file() else ""
+                    if dev_type in ("Mains", "USB") or dev.name.startswith(("AC", "ADP", "LINE")):
+                        found_supply = True
+                        if val == 1:
+                            return True
+                except Exception:
+                    continue
+        if found_supply:
+            return False
+    except Exception as e:
+        log(f"sysfs read error: {e}")
+    return None
+
+
+def get_upower_on_battery(con=None) -> bool | None:
+    """
+    Query UPower OnBattery boolean property via D-Bus.
+    Returns True if on battery, False if on AC, or None on failure.
+    """
+    if not HAS_GIO:
+        return None
+    try:
+        bus = con or Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+        val = bus.call_sync(
+            UPOWER_BUS_NAME,
+            UPOWER_OBJ_PATH,
+            DBUS_PROPS_INTERFACE,
+            "Get",
+            GLib.Variant("(ss)", (UPOWER_INTERFACE, "OnBattery")),
+            None,
+            Gio.DBusCallFlags.NONE,
+            1000,
+            None
+        )
+        return bool(val.unpack()[0])
+    except Exception as e:
+        log(f"UPower D-Bus query error: {e}")
+        return None
+
+
+def is_ac_connected(con=None) -> bool:
+    """
+    Authoritatively determine whether AC power is connected.
+    Combines UPower D-Bus and sysfs ground truth.
+    """
+    # 1. Primary: UPower D-Bus
+    on_battery = get_upower_on_battery(con)
+    if on_battery is not None:
+        # Cross-verify with sysfs if on_battery reports True to ensure no false battery state
+        sysfs_ac = check_sysfs_ac_online()
+        if sysfs_ac is not None:
+            # If sysfs confirms AC online, prioritize hardware state
+            if sysfs_ac is True and on_battery is True:
+                return True
+            return not on_battery
+        return not on_battery
+
+    # 2. Secondary: Direct sysfs
+    sysfs_ac = check_sysfs_ac_online()
+    if sysfs_ac is not None:
+        return sysfs_ac
+
+    # 3. Fallback: upower CLI
+    try:
+        out = subprocess.check_output(
+            ["upower", "-i", "/org/freedesktop/UPower/devices/line_power_ACAD"],
+            text=True,
+            timeout=2,
+            stderr=subprocess.DEVNULL
+        )
+        for line in out.splitlines():
+            if "online:" in line:
+                return "yes" in line.lower()
+    except Exception:
+        pass
+
+    # Default to True (Balanced) for safety
+    return True
+
+
+def get_current_power_profile(con=None) -> str:
+    """Query current active profile from net.hadess.PowerProfiles."""
+    if HAS_GIO:
+        try:
+            bus = con or Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+            val = bus.call_sync(
+                POWER_PROFILES_BUS_NAME,
+                POWER_PROFILES_OBJ_PATH,
+                DBUS_PROPS_INTERFACE,
+                "Get",
+                GLib.Variant("(ss)", (POWER_PROFILES_INTERFACE, "ActiveProfile")),
+                None,
+                Gio.DBusCallFlags.NONE,
+                1000,
+                None
+            )
+            return str(val.unpack()[0]).strip().lower()
+        except Exception:
+            pass
+
+    # Fallback to busctl
+    try:
+        out = subprocess.check_output(
+            ["busctl", "get-property", POWER_PROFILES_BUS_NAME, POWER_PROFILES_OBJ_PATH, POWER_PROFILES_INTERFACE, "ActiveProfile"],
+            text=True,
+            timeout=2,
+            stderr=subprocess.DEVNULL
+        )
+        # format: s "balanced"
+        parts = out.strip().split()
+        if len(parts) >= 2:
+            return parts[1].strip('"').lower()
+    except Exception:
+        pass
+
+    return "unknown"
+
+
+def set_power_profile(target_profile: str, con=None) -> bool:
+    """
+    Set ActiveProfile on net.hadess.PowerProfiles.
+    Returns True if successfully set or already set, False on error.
+    """
+    current = get_current_power_profile(con)
+    if current == target_profile:
+        return True
+
+    if HAS_GIO:
+        try:
+            bus = con or Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+            bus.call_sync(
+                POWER_PROFILES_BUS_NAME,
+                POWER_PROFILES_OBJ_PATH,
+                DBUS_PROPS_INTERFACE,
+                "Set",
+                GLib.Variant("(ssv)", (POWER_PROFILES_INTERFACE, "ActiveProfile", GLib.Variant("s", target_profile))),
+                None,
+                Gio.DBusCallFlags.NONE,
+                2000,
+                None
+            )
+            log(f"Profile changed: {current} -> {target_profile}")
+            return True
+        except Exception as e:
+            log(f"Error setting profile via Gio: {e}")
+
+    # Fallback to busctl
+    try:
+        subprocess.run(
+            ["busctl", "set-property", POWER_PROFILES_BUS_NAME, POWER_PROFILES_OBJ_PATH, POWER_PROFILES_INTERFACE, "ActiveProfile", "s", target_profile],
+            check=True,
+            timeout=3,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE
+        )
+        log(f"Profile changed via busctl: {current} -> {target_profile}")
+        return True
+    except Exception as e:
+        log(f"Error setting profile via busctl: {e}")
+        return False
+
+
+def send_notification(profile: str, ac_online: bool):
+    """Send clean, non-intrusive desktop notification."""
+    try:
+        if ac_online:
+            title = "Power Mode: Balanced"
+            body = "AC power connected"
+            icon = "ac-adapter-symbolic"
+        else:
+            title = "Power Mode: Power Save"
+            body = "Running on battery"
+            icon = "battery-low-symbolic"
+
+        subprocess.Popen(
+            [
+                "notify-send",
+                "-a", "Jeme Power",
+                "-i", icon,
+                "-h", "string:x-canonical-private-synchronous:jeme-power-switcher",
+                "-t", "3000",
+                title,
+                body
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+    except Exception:
+        pass
+
+
+class PowerSwitcherDaemon:
+    """
+    Event-driven power profile switcher daemon.
+    Listens to UPower and login1 D-Bus signals.
+    """
+
+    def __init__(self):
+        self.con = None
+        self.loop = None
+        self.last_ac_state = None
+        self.debounce_timer_id = 0
+        self.running = False
+
+    def on_event_triggered(self, source: str = "dbus"):
+        """Schedule a debounced evaluation."""
+        if self.debounce_timer_id:
+            GLib.source_remove(self.debounce_timer_id)
+            self.debounce_timer_id = 0
+
+        # 300ms debounce to let hardware / driver settle
+        self.debounce_timer_id = GLib.timeout_add(300, self.evaluate_and_apply, source)
+
+    def evaluate_and_apply(self, source: str = "debounce"):
+        self.debounce_timer_id = 0
+        ac_online = is_ac_connected(self.con)
+        target_profile = "balanced" if ac_online else "power-saver"
+
+        # Check if AC state transitioned
+        if self.last_ac_state is None:
+            # Initial startup run
+            self.last_ac_state = ac_online
+            current = get_current_power_profile(self.con)
+            log(f"Startup detected AC online={ac_online}. Current profile: '{current}'. Target: '{target_profile}'")
+            if current != target_profile:
+                if set_power_profile(target_profile, self.con):
+                    log(f"Startup profile initialized to '{target_profile}'")
+                else:
+                    log(f"Failed to set initial startup profile to '{target_profile}'")
+            return GLib.SOURCE_REMOVE
+
+        if ac_online != self.last_ac_state:
+            # Power source transitioned!
+            prev_state = "AC" if self.last_ac_state else "Battery"
+            new_state = "AC" if ac_online else "Battery"
+            log(f"Transition detected: {prev_state} -> {new_state} (source={source})")
+            self.last_ac_state = ac_online
+
+            current = get_current_power_profile(self.con)
+            if current != target_profile:
+                if set_power_profile(target_profile, self.con):
+                    send_notification(target_profile, ac_online)
+                else:
+                    log(f"Warning: Failed to switch profile to '{target_profile}' on transition")
+            else:
+                log(f"Profile is already '{target_profile}'. No change needed.")
+        else:
+            # State did not transition (e.g., normal battery drain or user manual change)
+            # Do NOT override user manual preference if power source hasn't changed.
+            pass
+
+        return GLib.SOURCE_REMOVE
+
+    def on_upower_signal(self, conn, sender, path, iface, sig_name, params, user_data):
+        try:
+            unpacked = params.unpack()
+            changed_iface = unpacked[0]
+            changed_props = unpacked[1]
+            if "OnBattery" in changed_props or "Online" in changed_props or "State" in changed_props:
+                self.on_event_triggered(f"upower:{path}")
+        except Exception:
+            self.on_event_triggered("upower:generic")
+
+    def on_login1_signal(self, conn, sender, path, iface, sig_name, params, user_data):
+        try:
+            unpacked = params.unpack()
+            is_sleeping = bool(unpacked[0])
+            if not is_sleeping:
+                # System resumed from suspend! Re-evaluate power state
+                log("System woke from suspend. Re-evaluating power state.")
+                self.on_event_triggered("login1:resume")
+        except Exception:
+            self.on_event_triggered("login1:generic")
+
+    def start(self):
+        if not HAS_GIO:
+            log("FATAL: PyGObject (Gio/GLib) is required for event-driven daemon mode.")
+            sys.exit(1)
+
+        log("Starting Jeme OS Power Switcher Daemon...")
+
+        try:
+            self.con = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+        except Exception as e:
+            log(f"FATAL: Unable to connect to system D-Bus: {e}")
+            sys.exit(1)
+
+        # 1. Listen for UPower OnBattery and device Online property changes
+        self.con.signal_subscribe(
+            UPOWER_BUS_NAME,
+            DBUS_PROPS_INTERFACE,
+            "PropertiesChanged",
+            None, # Match any UPower path (main object + devices)
+            None,
+            Gio.DBusSignalFlags.NONE,
+            self.on_upower_signal,
+            None
+        )
+
+        # 2. Listen for UPower DeviceChanged signals
+        self.con.signal_subscribe(
+            UPOWER_BUS_NAME,
+            UPOWER_INTERFACE,
+            "DeviceChanged",
+            None,
+            None,
+            Gio.DBusSignalFlags.NONE,
+            lambda *args: self.on_event_triggered("upower:device_changed"),
+            None
+        )
+
+        # 3. Listen for login1 PrepareForSleep (resume from suspend)
+        self.con.signal_subscribe(
+            LOGIN1_BUS_NAME,
+            LOGIN1_INTERFACE,
+            "PrepareForSleep",
+            LOGIN1_OBJ_PATH,
+            None,
+            Gio.DBusSignalFlags.NONE,
+            self.on_login1_signal,
+            None
+        )
+
+        # 4. Immediate startup evaluation
+        self.evaluate_and_apply("startup")
+
+        # 5. Handle Unix signals cleanly
+        def handle_signal(sig, frame):
+            log(f"Received signal {sig}. Stopping daemon...")
+            if self.loop:
+                self.loop.quit()
+
+        signal.signal(signal.SIGTERM, handle_signal)
+        signal.signal(signal.SIGINT, handle_signal)
+
+        self.running = True
+        self.loop = GLib.MainLoop()
+        log("Daemon event loop active and listening for power events.")
+        try:
+            self.loop.run()
+        except (KeyboardInterrupt, SystemExit):
+            pass
+        finally:
+            log("Daemon exited cleanly.")
+
+
+def cmd_status():
+    """Print complete power status report."""
+    print("==================================================")
+    print(" JEME OS — POWER MANAGEMENT STATUS")
+    print("==================================================")
+
+    # 1. AC & Battery
+    ac = is_ac_connected()
+    ac_str = "CONNECTED (AC Mains / USB-PD)" if ac else "DISCONNECTED (Running on Battery)"
+    print(f"  Power Supply Status  : {ac_str}")
+
+    bat_dir = Path("/sys/class/power_supply/BAT1")
+    if bat_dir.is_dir():
+        cap = (bat_dir / "capacity").read_text().strip() if (bat_dir / "capacity").is_file() else "N/A"
+        st = (bat_dir / "status").read_text().strip() if (bat_dir / "status").is_file() else "N/A"
+        print(f"  Battery Level        : {cap}% ({st})")
+
+    # 2. Profiles
+    active_prof = get_current_power_profile()
+    expected = "balanced" if ac else "power-saver"
+    match_str = "✓ MATCH" if active_prof == expected else f"⚠ MISMATCH (Expected {expected})"
+    print(f"  Active Power Profile : {active_prof} [{match_str}]")
+
+    # 3. TuneD
+    try:
+        tuned_active = subprocess.check_output(["tuned-adm", "active"], text=True, timeout=2).strip()
+        print(f"  TuneD Active State   : {tuned_active}")
+    except Exception:
+        print("  TuneD Active State   : N/A")
+
+    # 4. Platform Profile & CPU Governor
+    pp_file = Path("/sys/firmware/acpi/platform_profile")
+    if pp_file.is_file():
+        print(f"  ACPI Platform Profile: {pp_file.read_text().strip()}")
+
+    epp_file = Path("/sys/devices/system/cpu/cpu0/cpufreq/energy_performance_preference")
+    if epp_file.is_file():
+        print(f"  CPU Energy Pref (EPP): {epp_file.read_text().strip()}")
+
+    # 5. Service status
+    try:
+        svc_out = subprocess.check_output(
+            ["systemctl", "--user", "is-active", "jeme-power-switcher.service"],
+            text=True,
+            timeout=2,
+            stderr=subprocess.DEVNULL
+        ).strip()
+        print(f"  Switcher User Service: {svc_out}")
+    except Exception:
+        print("  Switcher User Service: inactive / not installed")
+
+    print("==================================================")
+
+
+def cmd_apply():
+    """One-shot apply profile according to current AC state."""
+    ac = is_ac_connected()
+    target = "balanced" if ac else "power-saver"
+    current = get_current_power_profile()
+    print(f"AC Connected: {ac} | Current Profile: {current} | Target Profile: {target}")
+    if current != target:
+        if set_power_profile(target):
+            print(f"Successfully switched profile to '{target}'.")
+        else:
+            print(f"Failed to switch profile to '{target}'.", file=sys.stderr)
+            sys.exit(1)
+    else:
+        print(f"Profile is already '{target}'. Nothing to do.")
+
+
+def cmd_set(profile: str):
+    """Explicitly set profile."""
+    valid = ("balanced", "power-saver", "performance")
+    if profile not in valid:
+        print(f"Error: Invalid profile '{profile}'. Choose from: {', '.join(valid)}", file=sys.stderr)
+        sys.exit(1)
+    if set_power_profile(profile):
+        print(f"Power profile set to '{profile}'.")
+    else:
+        print(f"Failed to set power profile to '{profile}'.", file=sys.stderr)
+        sys.exit(1)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Jeme OS Automatic Power Mode Switcher (AC=Balanced / Battery=Power Save)"
+    )
+    parser.add_argument(
+        "action",
+        nargs="?",
+        default="daemon",
+        choices=["daemon", "status", "apply", "set"],
+        help="Action to perform (default: daemon)"
+    )
+    parser.add_argument(
+        "profile",
+        nargs="?",
+        help="Profile name for 'set' action (balanced, power-saver, performance)"
+    )
+
+    args = parser.parse_args()
+
+    if args.action == "daemon":
+        daemon = PowerSwitcherDaemon()
+        daemon.start()
+    elif args.action == "status":
+        cmd_status()
+    elif args.action == "apply":
+        cmd_apply()
+    elif args.action == "set":
+        if not args.profile:
+            print("Error: Specify profile name. Example: jeme-power-switcher set balanced", file=sys.stderr)
+            sys.exit(1)
+        cmd_set(args.profile)
+
+
+if __name__ == "__main__":
+    main()

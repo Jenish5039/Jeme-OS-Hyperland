@@ -2,6 +2,16 @@
 
 -- Settings
 hl.config({
+    dwindle = {
+        preserve_split = false,
+    },
+    general = {
+        allow_tearing = false,
+    },
+    input = {
+        accel_profile = "flat",
+        sensitivity = 0.0,
+    },
     master = {
         orientation = "right",
     },
@@ -14,10 +24,10 @@ hl.config({
 
 -- Monitors
 hl.monitor({
-    output = "desc:China Star Optoelectronics Technology Co. Ltd 0x150F 0x00005600",
+    output = "eDP-1",
     disabled = false,
     mode = "1920x1080@144.00Hz",
     position = "0x0",
-    scale = 1,
+    scale = 0.83,
     cm = "srgb",
 })

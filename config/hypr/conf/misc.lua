@@ -6,7 +6,7 @@ hl.config({
         initial_workspace_tracking = 1,
         on_focus_under_fullscreen = 1,
         allow_session_lock_restore = true,
-        vrr = 2,
+        vrr = 0,
         middle_click_paste = false,
     },
 })

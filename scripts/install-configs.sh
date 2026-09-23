@@ -158,12 +158,34 @@ for b in "${REPO_DIR}/bin/"*; do
         chmod +x "${HOME}/.local/bin/${bname}"
     fi
 done
-
 if [[ -d "${REPO_DIR}/config/ml4w-dotfiles-settings" ]]; then
     info "Deploying Quickshell Settings App runtime to ~/.local/share/ml4w-dotfiles-settings/..."
     mkdir -p "${HOME}/.local/share/ml4w-dotfiles-settings"
     cp -a "${REPO_DIR}/config/ml4w-dotfiles-settings/"* "${HOME}/.local/share/ml4w-dotfiles-settings/"
 fi
+
+# ------------------------------------------------------------------------------
+# 5b. Deploy Systemd User Units
+# ------------------------------------------------------------------------------
+if [[ -d "${REPO_DIR}/systemd/user" ]]; then
+    info "Deploying systemd user services to ~/.config/systemd/user/..."
+    mkdir -p "${HOME}/.config/systemd/user"
+    for s in "${REPO_DIR}/systemd/user/"*; do
+        if [[ -f "$s" ]]; then
+            sname=$(basename "$s")
+            cp -p "$s" "${HOME}/.config/systemd/user/${sname}"
+        fi
+    done
+    if [[ -f "${HOME}/.local/bin/jeme-power-switcher" ]]; then
+        mkdir -p "${HOME}/.config/ml4w/scripts"
+        ln -sf "${HOME}/.local/bin/jeme-power-switcher" "${HOME}/.config/ml4w/scripts/jeme-power-switcher"
+    fi
+    if command -v systemctl &>/dev/null; then
+        systemctl --user daemon-reload 2>/dev/null || true
+        systemctl --user enable jeme-power-switcher.service 2>/dev/null || true
+    fi
+fi
+
 
 # ------------------------------------------------------------------------------
 # 6. Deploy Shell Dotfiles

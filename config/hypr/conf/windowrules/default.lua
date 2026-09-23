@@ -24,3 +24,14 @@ hl.layer_rule({
     ignore_alpha = 0.5,
     no_anim = true,
 })
+
+-- Google Meet auxiliary/picture-in-picture floating popup layout constraints
+hl.window_rule({
+    name = "google-meet-pip-layout",
+    match = {
+        title = [=[^(Meet [–-]|meet\.google\.com)]=],
+    },
+    float = true,
+    min_size = { 460, 360 },
+    size = { 500, 420 },
+})

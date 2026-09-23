@@ -17,19 +17,24 @@ PanelWindow {
     exclusionMode: WlrLayershell.Ignore
 
     implicitWidth: 420 // 380 + 40
+    implicitHeight: mainPanel.implicitHeight + 40
     color: "transparent"
 
     property bool isHyprlandSettingsInstalled: false
 
+    // Screen-constrained maximum bounds so the sidebar never overflows the display
+    readonly property real maxWindowHeight: (root.screen ? root.screen.height : 1080) - 52 - 20
+    readonly property real headerHeight: topBarRow.implicitHeight + div1.implicitHeight + buttonsRow.implicitHeight + div2.implicitHeight + (4 * sidebarLayout.spacing)
+    readonly property real maxScrollHeight: Math.max(100, maxWindowHeight - 80 - headerHeight)
+
     anchors {
         right: true
         top: true
-        bottom: true
     }
 
     margins {
         top: 52
-        bottom: 0
+        right: root.currentMargin
     }
 
     // --- CLICK OUTSIDE TO CLOSE (Native Hyprland) ---
@@ -57,7 +62,6 @@ PanelWindow {
     property bool isOpen: false
     visible: isOpen || slideAnim.running
 
-    margins { right: root.currentMargin }
     property real currentMargin: isOpen ? 0 : -470
 
     Behavior on currentMargin {
@@ -240,8 +244,11 @@ PanelWindow {
     // MAIN PANEL BACKGROUND
     // ==========================================
     Item {
+        id: mainPanel
         anchors.fill: parent
         anchors.margins: 20
+        implicitWidth: 380
+        implicitHeight: sidebarLayout.implicitHeight + 40
 
         RectangularShadow {
             id: shadow
@@ -274,12 +281,14 @@ PanelWindow {
         }
 
         ColumnLayout {
+            id: sidebarLayout
             anchors.fill: parent
             anchors.margins: 20
             spacing: 20
 
             // --- TOP BAR (Light/Dark, Screenshot & Color Picker) ---
             RowLayout {
+                id: topBarRow
                 Layout.fillWidth: true
                 spacing: 10
 
@@ -309,10 +318,11 @@ PanelWindow {
                 Item { Layout.fillWidth: true }
             }
 
-            Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.primary; opacity: 0.3 }
+            Rectangle { id: div1; Layout.fillWidth: true; implicitHeight: 1; color: Theme.primary; opacity: 0.3 }
 
             // --- THREE BUTTONS ROW ---
             RowLayout {
+                id: buttonsRow
                 Layout.fillWidth: true
                 spacing: 10
 
@@ -335,13 +345,15 @@ PanelWindow {
                 }
             }
 
-            Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.primary; opacity: 0.3 }
+            Rectangle { id: div2; Layout.fillWidth: true; implicitHeight: 1; color: Theme.primary; opacity: 0.3 }
 
             // --- SCROLLABLE CONTENT ---
             ScrollView {
                 id: scrollView
                 Layout.fillWidth: true
-                Layout.fillHeight: true
+                Layout.preferredHeight: Math.min(mainContentColumn.implicitHeight, root.maxScrollHeight)
+                Layout.maximumHeight: root.maxScrollHeight
+                implicitHeight: Layout.preferredHeight
                 contentHeight: mainContentColumn.implicitHeight // Tells ScrollView how tall the inner content truly is
                 clip: true
 
@@ -523,7 +535,8 @@ PanelWindow {
                         Layout.fillWidth: true
 
                         // Dynamically scale based on players, up to 210px (max 2 players)
-                        Layout.preferredHeight: contentHeight
+                        implicitHeight: visible ? Math.min(contentHeight, 210) : 0
+                        Layout.preferredHeight: implicitHeight
                         Layout.maximumHeight: 210
 
                         spacing: 10

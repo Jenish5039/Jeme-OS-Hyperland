@@ -1,0 +1,17 @@
+[Unit]
+Description=Jeme OS Automatic Power Mode Switcher (AC=Balanced / Battery=Power Save)
+Documentation=man:tuned(8)
+After=default.target
+
+[Service]
+Type=simple
+ExecStart=/home/zane/.local/bin/jeme-power-switcher daemon
+Restart=on-failure
+RestartSec=5s
+Environment=PYTHONUNBUFFERED=1
+PassEnvironment=WAYLAND_DISPLAY DISPLAY DBUS_SESSION_BUS_ADDRESS XDG_RUNTIME_DIR
+MemoryMax=64M
+CPUQuota=10%
+
+[Install]
+WantedBy=default.target

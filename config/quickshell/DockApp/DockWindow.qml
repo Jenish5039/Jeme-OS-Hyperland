@@ -155,11 +155,19 @@ PanelWindow {
 
         for (let i = 0; i < toplevels.length; i++) {
             const toplevel = toplevels[i]
-            const key = root.entryKey(toplevel.appId)
+            let resolvedAppId = toplevel.appId
+            if (!resolvedAppId || resolvedAppId === "") {
+                if (toplevel.parent && toplevel.parent.appId && toplevel.parent.appId !== "") {
+                    resolvedAppId = toplevel.parent.appId
+                } else if (toplevel.title && toplevel.title.toLowerCase().indexOf("meet.google.com") !== -1) {
+                    resolvedAppId = "brave-browser"
+                }
+            }
+            const key = root.entryKey(resolvedAppId)
             if (key === "")
                 continue
             if (byKey[key] === undefined) {
-                byKey[key] = makeItem(key, toplevel.appId, false)
+                byKey[key] = makeItem(key, resolvedAppId, false)
                 order.push(key)
             }
             byKey[key].windows.push(toplevel)

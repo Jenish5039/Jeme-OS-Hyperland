@@ -1,6 +1,11 @@
 {
     "bar": {
         "enabled": true,
-        "alwaysExpanded": true
+        "alwaysExpanded": true,
+        "height": 38,
+        "reservedHeight": 50
+    },
+    "pill": {
+        "radius": 12
     }
 }

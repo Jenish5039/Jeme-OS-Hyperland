@@ -59,23 +59,17 @@ Item {
             Quickshell.execDetached(["bash", "-c", item.entry.appId])
     }
 
-    // Focus the app: its only window, or — when it has several — the one after
-    // the currently focused one, so repeated clicks cycle through them.
+    // Focus or restore the app: its only window, or — when it has several — the one after
+    // the currently focused one, so repeated clicks cycle through them, restoring minimized ones.
     function activate(): void {
         if (!item.running) {
             item.launch()
             return
         }
-        if (item.windows.length === 1) {
-            item.windows[0].activate()
-            return
-        }
-        let index = -1
-        const focused = ToplevelManager.activeToplevel
-        for (let i = 0; i < item.windows.length; i++)
-            if (item.windows[i] === focused)
-                index = i
-        item.windows[(index + 1) % item.windows.length].activate()
+        const appId = (item.entry && item.entry.appId) ? item.entry.appId : ""
+        const key = (item.entry && item.entry.key) ? item.entry.key : ""
+        const appName = item.appName || ""
+        Quickshell.execDetached(["/home/zane/.config/hypr/scripts/minimize.sh", "--dock-activate", appId, key, appName])
     }
 
     function closeWindows(): void {
