@@ -16,14 +16,7 @@ hl.layer_rule({
     no_anim = true,
 })
 
--- Layer rules for Rofi launcher
-hl.layer_rule({
-    name = "rofi-blur",
-    match = { namespace = "^rofi$" },
-    blur = true,
-    ignore_alpha = 0.5,
-    no_anim = true,
-})
+
 
 -- Google Meet auxiliary/picture-in-picture floating popup layout constraints
 hl.window_rule({
@@ -34,4 +27,15 @@ hl.window_rule({
     float = true,
     min_size = { 460, 360 },
     size = { 500, 420 },
+})
+
+-- Steam update dialog and helper popups
+hl.window_rule({
+    name = "steam-updater-dialogs",
+    match = {
+        class = [=[^([Ss]team)$]=],
+        title = [=[^(Steam - Self Updater|Updating Steam.*|Steam Settings|Friends List.*)$]=],
+    },
+    float = true,
+    center = true,
 })
