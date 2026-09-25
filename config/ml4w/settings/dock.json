@@ -1,7 +1,7 @@
 {
     "dock": {
         "enabled": true,
-        "autohide": false,
+        "autohide": true,
         "iconSize": 32,
         "spacing": 8,
         "marginBottom": 10,
@@ -18,7 +18,8 @@
             "org.gnome.Calculator",
             "brave-browser",
             "code",
-            "com.spotify.Client"
+            "com.spotify.Client",
+            "org.telegram.desktop"
         ]
     }
 }

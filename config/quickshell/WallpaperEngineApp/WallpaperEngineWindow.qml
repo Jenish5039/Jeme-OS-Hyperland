@@ -99,7 +99,7 @@ PanelWindow {
     property var engineState: ({ "running": false, "mode": "static", "id": "", "title": "", "monitor": "all", "fps": 10 })
     property bool isDarkTheme: true
     property string selectedMonitor: "all"
-    property int selectedFps: 10
+    property var selectedFps: 10
     property bool isPreviewing: false
     property string currentWorkshopSignature: ""
     property bool isSyncing: false
@@ -319,7 +319,7 @@ PanelWindow {
     function applySelectedWallpaper(withTheme) {
         if (!selectedWallpaper) return;
         let mon = monitorComboBox.currentValue ? monitorComboBox.currentValue.name : "all";
-        let fps = selectedFps;
+        let fps = root.selectedFps;
 
         if (withTheme) {
             themeApplyProcess.command = ["jeme-wallpaper-engine", "apply-theme", selectedWallpaper.id];
@@ -327,7 +327,12 @@ PanelWindow {
             themeApplyProcess.running = true;
         }
 
-        let cmd = ["jeme-wallpaper-engine", "start", selectedWallpaper.id, "--fps", fps.toString()];
+        let cmd = ["jeme-wallpaper-engine", "start", selectedWallpaper.id];
+        if (fps.toString().toLowerCase() === "static") {
+            cmd.push("--playback-mode", "static");
+        } else {
+            cmd.push("--fps", fps.toString());
+        }
         if (mon && mon !== "all") {
             cmd.push("--monitor", mon);
         }
@@ -351,8 +356,13 @@ PanelWindow {
             root.isPreviewing = false;
         } else {
             let mon = monitorComboBox.currentValue ? monitorComboBox.currentValue.name : "all";
-            let fps = selectedFps;
-            let cmd = ["jeme-wallpaper-engine", "preview", selectedWallpaper.id, "--fps", fps.toString()];
+            let fps = root.selectedFps;
+            let cmd = ["jeme-wallpaper-engine", "preview", selectedWallpaper.id];
+            if (fps.toString().toLowerCase() === "static") {
+                cmd.push("--playback-mode", "static");
+            } else {
+                cmd.push("--fps", fps.toString());
+            }
             if (mon && mon !== "all") {
                 cmd.push("--monitor", mon);
             }
@@ -366,7 +376,8 @@ PanelWindow {
     function changeFps(fpsVal) {
         root.selectedFps = fpsVal;
         if (root.engineState.running) {
-            fpsProcess.command = ["jeme-wallpaper-engine", "set-fps", fpsVal.toString()];
+            let arg = fpsVal.toString().toLowerCase() === "static" ? "static" : fpsVal.toString();
+            fpsProcess.command = ["jeme-wallpaper-engine", "set-fps", arg];
             fpsProcess.running = false;
             fpsProcess.running = true;
         }
@@ -487,7 +498,9 @@ PanelWindow {
                                 break;
                             }
                         }
-                        if (data.fps) {
+                        if (data.playback_mode === "static" || (data.paused && data.pause_reasons && data.pause_reasons.indexOf("static") !== -1)) {
+                            root.selectedFps = "Static";
+                        } else if (data.fps) {
                             root.selectedFps = data.fps;
                         }
                     }
@@ -849,11 +862,15 @@ PanelWindow {
                                 }
 
                                 Text {
-                                    text: root.engineState.running ? "Active (" + (root.engineState.fps || 10) + " FPS)" : "Static"
+                                    text: {
+                                        if (!root.engineState.running) return "Stopped";
+                                        if (root.engineState.playback_mode === "static" || root.engineState.paused) return "Static (Paused)";
+                                        return "Active (" + (root.engineState.fps || 10) + " FPS)";
+                                    }
                                     font.family: Theme.fontFamily
                                     font.pixelSize: 10
                                     font.bold: root.engineState.running
-                                    color: root.engineState.running ? "#86efac" : Theme.outline
+                                    color: root.engineState.running ? ((root.engineState.playback_mode === "static" || root.engineState.paused) ? Theme.primary : "#86efac") : Theme.outline
                                 }
                             }
                         }
@@ -1710,7 +1727,7 @@ PanelWindow {
 
                                             // FPS Selector
                                             ColumnLayout {
-                                                Layout.preferredWidth: 170
+                                                Layout.preferredWidth: 215
                                                 spacing: 2
 
                                                 Text {
@@ -1723,13 +1740,13 @@ PanelWindow {
                                                 RowLayout {
                                                     spacing: 3
                                                     Repeater {
-                                                        model: [10, 15, 30, 60]
+                                                        model: [10, 15, 30, 60, "Static"]
                                                         delegate: Rectangle {
                                                             Layout.fillWidth: true
                                                             implicitHeight: 28
                                                             radius: 5
-                                                            color: root.selectedFps === modelData ? Theme.primary : Theme.surface_container_high
-                                                            border.color: root.selectedFps === modelData ? Theme.primary : Theme.outline_variant
+                                                            color: root.selectedFps.toString().toLowerCase() === modelData.toString().toLowerCase() ? Theme.primary : Theme.surface_container_high
+                                                            border.color: root.selectedFps.toString().toLowerCase() === modelData.toString().toLowerCase() ? Theme.primary : Theme.outline_variant
                                                             border.width: 1
 
                                                             Text {
@@ -1737,8 +1754,8 @@ PanelWindow {
                                                                 text: modelData.toString()
                                                                 font.family: Theme.fontFamily
                                                                 font.pixelSize: 10
-                                                                font.bold: root.selectedFps === modelData
-                                                                color: root.selectedFps === modelData ? Theme.background : Theme.on_surface_variant
+                                                                font.bold: root.selectedFps.toString().toLowerCase() === modelData.toString().toLowerCase()
+                                                                color: root.selectedFps.toString().toLowerCase() === modelData.toString().toLowerCase() ? Theme.background : Theme.on_surface_variant
                                                             }
 
                                                             MouseArea {
@@ -1990,7 +2007,8 @@ PanelWindow {
                         Text {
                             text: {
                                 if (root.engineState.running) {
-                                    return (root.engineState.title || root.engineState.id) + " · " + root.engineState.monitor + " · " + root.engineState.fps + " FPS";
+                                    let modeStr = (root.engineState.playback_mode === "static" || root.engineState.paused) ? "Static (Paused)" : (root.engineState.fps + " FPS");
+                                    return (root.engineState.title || root.engineState.id) + " · " + root.engineState.monitor + " · " + modeStr;
                                 }
                                 if (root.engineState.last_error) {
                                     let err = root.engineState.last_error.split("\n")[0];

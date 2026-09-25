@@ -1,14 +1,23 @@
 #!/usr/bin/env python3
 """
-Jeme OS — Automatic Power Mode Switcher
+Jeme OS — Automatic Power Mode Switcher with Manual Profile Memory
 Authoritative power-profile manager for AC and Battery transitions.
 
-Rules:
-- AC connected      -> Balanced mode ('balanced')
-- Battery / AC off  -> Power Save mode ('power-saver')
-- Event-driven via UPower D-Bus and systemd login1 (0% CPU polling)
-- Fallback sysfs hardware verification
-- Integrates with TuneD / power-profiles-daemon / Quickshell
+Behavior:
+1. Default automatic behavior:
+   - AC connected       -> Balanced mode ('balanced')
+   - Battery / AC off   -> Power Save mode ('power-saver')
+2. User manual override memory:
+   - When user manually selects a profile (e.g. 'performance', 'balanced', 'power-saver'):
+     Remember manual profile preference.
+   - When AC is disconnected:
+     Temporarily switch to 'power-saver' (without overwriting remembered manual profile).
+   - When AC is reconnected:
+     Restore the user's remembered manual profile!
+   - Automatic transitions triggered by AC/battery do NOT overwrite the manual profile.
+3. Event-driven via UPower D-Bus, net.hadess.PowerProfiles, and systemd login1 (0% CPU polling).
+4. Fallback sysfs hardware verification.
+5. Integrates with TuneD / power-profiles-daemon / Quickshell.
 """
 
 import os
@@ -45,6 +54,10 @@ LOGIN1_INTERFACE = "org.freedesktop.login1.Manager"
 STATE_DIR = Path.home() / ".cache" / "jeme-power-switcher"
 LOG_FILE = STATE_DIR / "switcher.log"
 
+SETTINGS_DIR = Path.home() / ".config" / "ml4w" / "settings"
+MANUAL_PROFILE_FILE = SETTINGS_DIR / "manual-power-profile"
+VALID_PROFILES = ("balanced", "power-saver", "performance")
+
 
 def log(msg: str):
     """Write timestamped log to stdout and logfile."""
@@ -57,6 +70,31 @@ def log(msg: str):
             f.write(line + "\n")
     except Exception:
         pass
+
+
+def get_saved_manual_profile() -> str | None:
+    """Read remembered manual profile preference from settings file."""
+    try:
+        if MANUAL_PROFILE_FILE.is_file():
+            val = MANUAL_PROFILE_FILE.read_text(encoding="utf-8").strip().lower()
+            if val in VALID_PROFILES:
+                return val
+    except Exception:
+        pass
+    return None
+
+
+def save_manual_profile(profile: str | None):
+    """Persist remembered manual profile preference to settings file."""
+    try:
+        SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
+        if profile and profile in VALID_PROFILES:
+            MANUAL_PROFILE_FILE.write_text(profile.strip().lower() + "\n", encoding="utf-8")
+        else:
+            if MANUAL_PROFILE_FILE.exists():
+                MANUAL_PROFILE_FILE.unlink()
+    except Exception as e:
+        log(f"Failed to save manual power profile: {e}")
 
 
 def check_sysfs_ac_online() -> bool | None:
@@ -201,6 +239,10 @@ def set_power_profile(target_profile: str, con=None) -> bool:
     Set ActiveProfile on net.hadess.PowerProfiles.
     Returns True if successfully set or already set, False on error.
     """
+    if target_profile not in VALID_PROFILES:
+        log(f"Invalid target profile: {target_profile}")
+        return False
+
     current = get_current_power_profile(con)
     if current == target_profile:
         return True
@@ -240,13 +282,26 @@ def set_power_profile(target_profile: str, con=None) -> bool:
         return False
 
 
-def send_notification(profile: str, ac_online: bool):
+def send_notification(profile: str, ac_online: bool, is_restored: bool = False):
     """Send clean, non-intrusive desktop notification."""
     try:
         if ac_online:
-            title = "Power Mode: Balanced"
-            body = "AC power connected"
-            icon = "ac-adapter-symbolic"
+            if profile == "performance":
+                title = "Power Mode: Performance"
+                body = "AC power connected (Restored preference)" if is_restored else "AC power connected"
+                icon = "power-profile-performance-symbolic"
+            elif profile == "balanced":
+                title = "Power Mode: Balanced"
+                body = "AC power connected (Restored preference)" if is_restored else "AC power connected"
+                icon = "ac-adapter-symbolic"
+            elif profile == "power-saver":
+                title = "Power Mode: Power Saver"
+                body = "AC power connected (Manual preference)"
+                icon = "ac-adapter-symbolic"
+            else:
+                title = f"Power Mode: {profile.title()}"
+                body = "AC power connected"
+                icon = "ac-adapter-symbolic"
         else:
             title = "Power Mode: Power Save"
             body = "Running on battery"
@@ -272,7 +327,8 @@ def send_notification(profile: str, ac_online: bool):
 class PowerSwitcherDaemon:
     """
     Event-driven power profile switcher daemon.
-    Listens to UPower and login1 D-Bus signals.
+    Listens to UPower, login1, and net.hadess.PowerProfiles D-Bus signals.
+    Maintains manual profile preference while automatically handling battery/AC transitions.
     """
 
     def __init__(self):
@@ -281,6 +337,9 @@ class PowerSwitcherDaemon:
         self.last_ac_state = None
         self.debounce_timer_id = 0
         self.running = False
+        self.manual_profile = get_saved_manual_profile()
+        self.internal_target_profile = None
+        self.settings_monitor = None
 
     def on_event_triggered(self, source: str = "dbus"):
         """Schedule a debounced evaluation."""
@@ -294,42 +353,99 @@ class PowerSwitcherDaemon:
     def evaluate_and_apply(self, source: str = "debounce"):
         self.debounce_timer_id = 0
         ac_online = is_ac_connected(self.con)
-        target_profile = "balanced" if ac_online else "power-saver"
+        
+        # Determine target profile based on power source and manual preference
+        if ac_online:
+            target_profile = self.manual_profile if self.manual_profile else "balanced"
+        else:
+            target_profile = "power-saver"
 
-        # Check if AC state transitioned
+        # Check if this is initial startup
         if self.last_ac_state is None:
-            # Initial startup run
             self.last_ac_state = ac_online
             current = get_current_power_profile(self.con)
-            log(f"Startup detected AC online={ac_online}. Current profile: '{current}'. Target: '{target_profile}'")
+            log(f"Startup detected AC online={ac_online}, manual_profile='{self.manual_profile}'. Current profile: '{current}'. Target: '{target_profile}'")
             if current != target_profile:
+                self.internal_target_profile = target_profile
                 if set_power_profile(target_profile, self.con):
                     log(f"Startup profile initialized to '{target_profile}'")
                 else:
                     log(f"Failed to set initial startup profile to '{target_profile}'")
             return GLib.SOURCE_REMOVE
 
+        # Check if AC state transitioned
         if ac_online != self.last_ac_state:
-            # Power source transitioned!
             prev_state = "AC" if self.last_ac_state else "Battery"
             new_state = "AC" if ac_online else "Battery"
-            log(f"Transition detected: {prev_state} -> {new_state} (source={source})")
+            log(f"Transition detected: {prev_state} -> {new_state} (source={source}) | Manual profile: '{self.manual_profile}' -> Target: '{target_profile}'")
             self.last_ac_state = ac_online
 
             current = get_current_power_profile(self.con)
             if current != target_profile:
+                self.internal_target_profile = target_profile
                 if set_power_profile(target_profile, self.con):
-                    send_notification(target_profile, ac_online)
+                    is_restored = bool(ac_online and self.manual_profile)
+                    send_notification(target_profile, ac_online, is_restored=is_restored)
                 else:
                     log(f"Warning: Failed to switch profile to '{target_profile}' on transition")
             else:
                 log(f"Profile is already '{target_profile}'. No change needed.")
         else:
-            # State did not transition (e.g., normal battery drain or user manual change)
-            # Do NOT override user manual preference if power source hasn't changed.
-            pass
+            # Power source did not change.
+            # If triggered by a manual settings file change, apply target profile if on AC
+            if source == "settings_file" and ac_online:
+                current = get_current_power_profile(self.con)
+                if current != target_profile:
+                    self.internal_target_profile = target_profile
+                    if set_power_profile(target_profile, self.con):
+                        send_notification(target_profile, ac_online, is_restored=bool(self.manual_profile))
+            elif source == "login1:resume":
+                # System resumed from suspend - verify state
+                current = get_current_power_profile(self.con)
+                if current != target_profile:
+                    self.internal_target_profile = target_profile
+                    set_power_profile(target_profile, self.con)
 
         return GLib.SOURCE_REMOVE
+
+    def on_power_profile_signal(self, conn, sender, path, iface, sig_name, params, user_data):
+        """
+        Handle ActiveProfile change signals from net.hadess.PowerProfiles.
+        Distinguish between daemon automatic switches and user manual selections.
+        """
+        try:
+            unpacked = params.unpack()
+            if len(unpacked) >= 2 and isinstance(unpacked[1], dict) and "ActiveProfile" in unpacked[1]:
+                new_profile = str(unpacked[1]["ActiveProfile"]).strip().lower()
+
+                # If this change was initiated internally by the daemon, ignore it
+                if self.internal_target_profile is not None:
+                    if new_profile == self.internal_target_profile:
+                        log(f"Profile updated internally to '{new_profile}' (automatic AC/battery switch).")
+                        self.internal_target_profile = None
+                        return
+                    self.internal_target_profile = None
+
+                # Otherwise, this is an external change (e.g. from Quickshell statusbar, GUI, or CLI)
+                if new_profile in VALID_PROFILES:
+                    ac_online = is_ac_connected(self.con)
+                    default_auto_profile = "balanced" if ac_online else "power-saver"
+
+                    # If we are in default automatic mode (manual_profile is None)
+                    # and the new profile matches the default auto profile for current AC state,
+                    # keep manual_profile as None.
+                    if self.manual_profile is None and new_profile == default_auto_profile:
+                        log(f"Active profile is default automatic '{new_profile}' (no manual override).")
+                        return
+
+                    if new_profile != self.manual_profile:
+                        log(f"User manual power profile change detected: '{new_profile}' (persisting preference)")
+                        self.manual_profile = new_profile
+                        save_manual_profile(new_profile)
+                    else:
+                        log(f"User power profile confirmed: '{new_profile}'")
+        except Exception as e:
+            log(f"Error handling PowerProfiles signal: {e}")
 
     def on_upower_signal(self, conn, sender, path, iface, sig_name, params, user_data):
         try:
@@ -346,18 +462,29 @@ class PowerSwitcherDaemon:
             unpacked = params.unpack()
             is_sleeping = bool(unpacked[0])
             if not is_sleeping:
-                # System resumed from suspend! Re-evaluate power state
+                # System woke from suspend! Re-evaluate power state
                 log("System woke from suspend. Re-evaluating power state.")
                 self.on_event_triggered("login1:resume")
         except Exception:
             self.on_event_triggered("login1:generic")
+
+    def on_settings_file_changed(self, monitor, file, other_file, event_type):
+        """Watch ~/.config/ml4w/settings/manual-power-profile for external updates/deletions."""
+        try:
+            current_saved = get_saved_manual_profile()
+            if current_saved != self.manual_profile:
+                log(f"Manual profile setting updated on disk: '{self.manual_profile}' -> '{current_saved}'")
+                self.manual_profile = current_saved
+                self.on_event_triggered("settings_file")
+        except Exception as e:
+            log(f"Error handling settings file change: {e}")
 
     def start(self):
         if not HAS_GIO:
             log("FATAL: PyGObject (Gio/GLib) is required for event-driven daemon mode.")
             sys.exit(1)
 
-        log("Starting Jeme OS Power Switcher Daemon...")
+        log("Starting Jeme OS Power Switcher Daemon (Manual Profile Memory Enabled)...")
 
         try:
             self.con = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
@@ -365,19 +492,31 @@ class PowerSwitcherDaemon:
             log(f"FATAL: Unable to connect to system D-Bus: {e}")
             sys.exit(1)
 
-        # 1. Listen for UPower OnBattery and device Online property changes
+        # 1. Listen for net.hadess.PowerProfiles ActiveProfile changes (user manual selections)
+        self.con.signal_subscribe(
+            POWER_PROFILES_BUS_NAME,
+            DBUS_PROPS_INTERFACE,
+            "PropertiesChanged",
+            POWER_PROFILES_OBJ_PATH,
+            None,
+            Gio.DBusSignalFlags.NONE,
+            self.on_power_profile_signal,
+            None
+        )
+
+        # 2. Listen for UPower OnBattery and device Online property changes
         self.con.signal_subscribe(
             UPOWER_BUS_NAME,
             DBUS_PROPS_INTERFACE,
             "PropertiesChanged",
-            None, # Match any UPower path (main object + devices)
+            None,  # Match any UPower path (main object + devices)
             None,
             Gio.DBusSignalFlags.NONE,
             self.on_upower_signal,
             None
         )
 
-        # 2. Listen for UPower DeviceChanged signals
+        # 3. Listen for UPower DeviceChanged signals
         self.con.signal_subscribe(
             UPOWER_BUS_NAME,
             UPOWER_INTERFACE,
@@ -389,7 +528,7 @@ class PowerSwitcherDaemon:
             None
         )
 
-        # 3. Listen for login1 PrepareForSleep (resume from suspend)
+        # 4. Listen for login1 PrepareForSleep (resume from suspend)
         self.con.signal_subscribe(
             LOGIN1_BUS_NAME,
             LOGIN1_INTERFACE,
@@ -401,10 +540,19 @@ class PowerSwitcherDaemon:
             None
         )
 
-        # 4. Immediate startup evaluation
+        # 5. Monitor settings directory for manual profile file changes/removal
+        try:
+            SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
+            settings_gfile = Gio.File.new_for_path(str(SETTINGS_DIR))
+            self.settings_monitor = settings_gfile.monitor_directory(Gio.FileMonitorFlags.NONE, None)
+            self.settings_monitor.connect("changed", self.on_settings_file_changed)
+        except Exception as e:
+            log(f"Warning: Could not start settings file monitor: {e}")
+
+        # 6. Immediate startup evaluation
         self.evaluate_and_apply("startup")
 
-        # 5. Handle Unix signals cleanly
+        # 7. Handle Unix signals cleanly
         def handle_signal(sig, frame):
             log(f"Received signal {sig}. Stopping daemon...")
             if self.loop:
@@ -415,7 +563,7 @@ class PowerSwitcherDaemon:
 
         self.running = True
         self.loop = GLib.MainLoop()
-        log("Daemon event loop active and listening for power events.")
+        log(f"Daemon event loop active. Loaded manual preference: '{self.manual_profile}'")
         try:
             self.loop.run()
         except (KeyboardInterrupt, SystemExit):
@@ -433,35 +581,39 @@ def cmd_status():
     # 1. AC & Battery
     ac = is_ac_connected()
     ac_str = "CONNECTED (AC Mains / USB-PD)" if ac else "DISCONNECTED (Running on Battery)"
-    print(f"  Power Supply Status  : {ac_str}")
+    print(f"  Power Supply Status    : {ac_str}")
 
     bat_dir = Path("/sys/class/power_supply/BAT1")
     if bat_dir.is_dir():
         cap = (bat_dir / "capacity").read_text().strip() if (bat_dir / "capacity").is_file() else "N/A"
         st = (bat_dir / "status").read_text().strip() if (bat_dir / "status").is_file() else "N/A"
-        print(f"  Battery Level        : {cap}% ({st})")
+        print(f"  Battery Level          : {cap}% ({st})")
 
     # 2. Profiles
     active_prof = get_current_power_profile()
-    expected = "balanced" if ac else "power-saver"
+    manual_prof = get_saved_manual_profile()
+    expected = (manual_prof or "balanced") if ac else "power-saver"
     match_str = "✓ MATCH" if active_prof == expected else f"⚠ MISMATCH (Expected {expected})"
-    print(f"  Active Power Profile : {active_prof} [{match_str}]")
+    print(f"  Active Power Profile   : {active_prof} [{match_str}]")
+    print(f"  Manual Profile Memory  : {manual_prof or 'None (Default Automatic: AC=Balanced / Bat=Power Saver)'}")
+    print(f"  AC Target (Plugged)    : {manual_prof or 'balanced'}")
+    print(f"  Battery Target (Unplug): power-saver")
 
     # 3. TuneD
     try:
         tuned_active = subprocess.check_output(["tuned-adm", "active"], text=True, timeout=2).strip()
-        print(f"  TuneD Active State   : {tuned_active}")
+        print(f"  TuneD Active State     : {tuned_active}")
     except Exception:
-        print("  TuneD Active State   : N/A")
+        print("  TuneD Active State     : N/A")
 
     # 4. Platform Profile & CPU Governor
     pp_file = Path("/sys/firmware/acpi/platform_profile")
     if pp_file.is_file():
-        print(f"  ACPI Platform Profile: {pp_file.read_text().strip()}")
+        print(f"  ACPI Platform Profile  : {pp_file.read_text().strip()}")
 
     epp_file = Path("/sys/devices/system/cpu/cpu0/cpufreq/energy_performance_preference")
     if epp_file.is_file():
-        print(f"  CPU Energy Pref (EPP): {epp_file.read_text().strip()}")
+        print(f"  CPU Energy Pref (EPP)  : {epp_file.read_text().strip()}")
 
     # 5. Service status
     try:
@@ -471,19 +623,20 @@ def cmd_status():
             timeout=2,
             stderr=subprocess.DEVNULL
         ).strip()
-        print(f"  Switcher User Service: {svc_out}")
+        print(f"  Switcher User Service  : {svc_out}")
     except Exception:
-        print("  Switcher User Service: inactive / not installed")
+        print("  Switcher User Service  : inactive / not installed")
 
     print("==================================================")
 
 
 def cmd_apply():
-    """One-shot apply profile according to current AC state."""
+    """One-shot apply profile according to current AC state and manual preference."""
     ac = is_ac_connected()
-    target = "balanced" if ac else "power-saver"
+    manual_prof = get_saved_manual_profile()
+    target = (manual_prof or "balanced") if ac else "power-saver"
     current = get_current_power_profile()
-    print(f"AC Connected: {ac} | Current Profile: {current} | Target Profile: {target}")
+    print(f"AC Connected: {ac} | Current Profile: {current} | Target: {target} | Manual Preference: {manual_prof or 'None'}")
     if current != target:
         if set_power_profile(target):
             print(f"Successfully switched profile to '{target}'.")
@@ -495,27 +648,46 @@ def cmd_apply():
 
 
 def cmd_set(profile: str):
-    """Explicitly set profile."""
-    valid = ("balanced", "power-saver", "performance")
-    if profile not in valid:
-        print(f"Error: Invalid profile '{profile}'. Choose from: {', '.join(valid)}", file=sys.stderr)
+    """Explicitly set profile and record as manual user preference."""
+    profile = profile.strip().lower()
+    if profile not in VALID_PROFILES:
+        print(f"Error: Invalid profile '{profile}'. Choose from: {', '.join(VALID_PROFILES)}", file=sys.stderr)
         sys.exit(1)
+
+    # Save manual preference
+    save_manual_profile(profile)
+
+    # Apply profile immediately
     if set_power_profile(profile):
-        print(f"Power profile set to '{profile}'.")
+        print(f"Power profile set to '{profile}' and saved as manual preference.")
     else:
         print(f"Failed to set power profile to '{profile}'.", file=sys.stderr)
         sys.exit(1)
 
 
+def cmd_clear_manual():
+    """Clear manual user profile preference and revert to default automatic behavior."""
+    save_manual_profile(None)
+    ac = is_ac_connected()
+    target = "balanced" if ac else "power-saver"
+    print(f"Manual power profile preference cleared.")
+    print(f"Reverting to default automatic profile: '{target}' (AC={ac})...")
+    if set_power_profile(target):
+        print(f"Power profile set to '{target}'.")
+    else:
+        print(f"Failed to set power profile to '{target}'.", file=sys.stderr)
+        sys.exit(1)
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description="Jeme OS Automatic Power Mode Switcher (AC=Balanced / Battery=Power Save)"
+        description="Jeme OS Automatic Power Mode Switcher with Manual Profile Memory"
     )
     parser.add_argument(
         "action",
         nargs="?",
         default="daemon",
-        choices=["daemon", "status", "apply", "set"],
+        choices=["daemon", "status", "apply", "set", "clear-manual", "reset-manual"],
         help="Action to perform (default: daemon)"
     )
     parser.add_argument(
@@ -535,9 +707,11 @@ def main():
         cmd_apply()
     elif args.action == "set":
         if not args.profile:
-            print("Error: Specify profile name. Example: jeme-power-switcher set balanced", file=sys.stderr)
+            print("Error: Specify profile name. Example: jeme-power-switcher set performance", file=sys.stderr)
             sys.exit(1)
         cmd_set(args.profile)
+    elif args.action in ("clear-manual", "reset-manual"):
+        cmd_clear_manual()
 
 
 if __name__ == "__main__":

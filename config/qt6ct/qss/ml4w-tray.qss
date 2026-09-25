@@ -4,43 +4,43 @@
  */
 
 QMenu {
-    background-color: #151218;
-    color: #e7e0e8;
+    background-color: #0e1415;
+    color: #dee4e4;
 
-    border: 1px solid #d5bbfc;
+    border: 1px solid #80d4dc;
     border-radius: 8px;
     padding: 6px;
 
-    font-family: "Fira Sans";
+    font-family: "Inter Medium";
     font-size: 14px;
     font-weight: 600;
 }
 
 QMenu::item {
     background-color: transparent;
-    color: #e7e0e8;
+    color: #dee4e4;
 
     padding: 7px 12px;
     margin: 1px 2px;
     border-radius: 5px;
 
-    font-family: "Fira Sans";
+    font-family: "Inter Medium";
     font-size: 14px;
     font-weight: 600;
 }
 
 QMenu::item:selected {
-    background-color: #523c73;
-    color: #ecdcff;
+    background-color: #004f55;
+    color: #9df0f9;
 }
 
 QMenu::item:disabled {
-    color: #cbc4cf;
+    color: #bec8c9;
 }
 
 QMenu::separator {
     height: 1px;
-    background-color: #d5bbfc;
+    background-color: #80d4dc;
     margin: 5px 8px;
 }
 
@@ -58,40 +58,40 @@ QMenu::right-arrow {
  * Qt Dialogs & Windows (e.g. hyprland-share-picker)
  */
 QDialog, QMainWindow {
-    background-color: #151218;
-    color: #e7e0e8;
+    background-color: #0e1415;
+    color: #dee4e4;
 }
 
 QTabWidget::pane {
-    border: 1px solid #4a454e;
+    border: 1px solid #3f4849;
     border-radius: 8px;
-    background-color: #151218;
+    background-color: #0e1415;
     top: -1px;
 }
 
 QTabBar::tab {
-    background-color: #211e24;
-    color: #e7e0e8;
-    border: 1px solid #4a454e;
+    background-color: #1a2121;
+    color: #dee4e4;
+    border: 1px solid #3f4849;
     border-bottom: none;
     border-top-left-radius: 6px;
     border-top-right-radius: 6px;
     padding: 7px 16px;
     margin-right: 3px;
-    font-family: "Fira Sans";
+    font-family: "Inter Medium";
     font-size: 13px;
 }
 
 QTabBar::tab:selected {
-    background-color: #523c73;
-    color: #ecdcff;
-    border-color: #d5bbfc;
+    background-color: #004f55;
+    color: #9df0f9;
+    border-color: #80d4dc;
     font-weight: 600;
 }
 
 QTabBar::tab:hover:!selected {
-    background-color: #2c292f;
-    color: #d5bbfc;
+    background-color: #252b2c;
+    color: #80d4dc;
 }
 
 QScrollArea {
@@ -100,31 +100,31 @@ QScrollArea {
 }
 
 QPushButton {
-    background-color: #211e24;
-    color: #e7e0e8;
-    border: 1px solid #4a454e;
+    background-color: #1a2121;
+    color: #dee4e4;
+    border: 1px solid #3f4849;
     border-radius: 6px;
     padding: 8px 14px;
-    font-family: "Fira Sans";
+    font-family: "Inter Medium";
     font-size: 13px;
     font-weight: 500;
 }
 
 QPushButton:hover {
-    background-color: #37333a;
-    color: #d5bbfc;
-    border-color: #d5bbfc;
+    background-color: #303637;
+    color: #80d4dc;
+    border-color: #80d4dc;
 }
 
 QPushButton:pressed {
-    background-color: #523c73;
-    color: #ecdcff;
+    background-color: #004f55;
+    color: #9df0f9;
 }
 
 QCheckBox {
     spacing: 8px;
-    color: #e7e0e8;
-    font-family: "Fira Sans";
+    color: #dee4e4;
+    font-family: "Inter Medium";
     font-size: 13px;
 }
 
@@ -132,13 +132,13 @@ QCheckBox::indicator {
     width: 18px;
     height: 18px;
     border-radius: 4px;
-    border: 1px solid #958e99;
-    background-color: #211e24;
+    border: 1px solid #899393;
+    background-color: #1a2121;
 }
 
 QCheckBox::indicator:checked {
-    background-color: #d5bbfc;
-    border-color: #d5bbfc;
+    background-color: #80d4dc;
+    border-color: #80d4dc;
 }
 
 /*
@@ -150,13 +150,13 @@ QFileDialog {
     color: #dedede;
     border: 1px solid #2e2e33;
     border-radius: 8px;
-    font-family: "Fira Sans", sans-serif;
+    font-family: "Inter Medium", sans-serif;
     font-size: 13px;
 }
 
 QFileDialog QWidget {
     color: #dedede;
-    font-family: "Fira Sans", sans-serif;
+    font-family: "Inter Medium", sans-serif;
     font-size: 13px;
 }
 

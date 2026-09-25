@@ -5,10 +5,11 @@ import QtQuick.Layouts
 import qs.CustomTheme
 
 // Compact, real-time audio spectrum visualizer for the Jeme OS Statusbar.
-// Driven by a persistent CAVA PipeWire raw stream.
-//   • Auto-hides on silence: collapses completely when no audio is playing (zero idle dots)
-//   • Rises and fades up from the bottom when sound begins
-//   • Sinks down and fades out when sound ends
+// Driven by a persistent CAVA PipeWire raw stream in stereo mode.
+//   • Stereo layout: 8 bars Left | 8 bars Right (bass rises in center)
+//   • Adaptive dynamic scaling: normal music utilizes full 16px height
+//   • Instant reaction: direct property binding (zero smoothing/sliding)
+//   • Auto-hides on silence: collapses completely when no audio is playing
 //   • Left click / Return  → Toggle native Quickshell audio popup
 //   • Right click          → Open pwvucontrol / audio mixer
 //   • Follows active Matugen color scheme (Theme.primary)
@@ -26,11 +27,14 @@ Rectangle {
 
     // Bar layout specifications
     readonly property int barCount: 16
-    readonly property real minBarHeight: 0.0
+    readonly property real minBarHeight: 2.0
     readonly property real maxBarHeight: 16.0
     readonly property real barWidth: 2.5
     readonly property real barRadius: 1.25
     readonly property real barSpacing: 2.0
+
+    // Adaptive peak tracking for dynamic range normalization (fast attack, decay floor at 45.0)
+    property real visualPeak: 50.0
 
     // Raw spectrum values (0-100) from CAVA
     property var rawValues: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
@@ -46,10 +50,6 @@ Rectangle {
     visible: !collapsed
     clip: true
 
-    Behavior on implicitWidth {
-        NumberAnimation { duration: 320; easing.type: Easing.OutQuint }
-    }
-
     // Background pill matching BarButton and VolumeModule
     color: root.active ? Theme.primary : "transparent"
 
@@ -57,7 +57,7 @@ Rectangle {
         ColorAnimation { duration: 500; easing.type: Easing.OutQuint }
     }
 
-    // Single persistent CAVA process streaming raw ASCII frames
+    // Single persistent CAVA process streaming raw ASCII stereo frames
     Process {
         id: cavaProc
         command: [
@@ -76,21 +76,31 @@ Rectangle {
                 let parts = str.split(";")
                 let vals = []
                 let hasSound = false
+                let framePeak = 0
+
                 for (let i = 0; i < root.barCount; i++) {
                     let num = (i < parts.length && parts[i] !== "") ? parseInt(parts[i]) || 0 : 0
                     vals.push(num)
                     if (num > 0)
                         hasSound = true
+                    if (num > framePeak)
+                        framePeak = num
                 }
 
                 if (hasSound) {
                     if (!root.hasAudio) {
                         root.hasAudio = true
                     }
+                    // Adaptive dynamic-range scaling: instant attack on new peaks, smooth decay with noise-floor protection
+                    if (framePeak > root.visualPeak) {
+                        root.visualPeak = Math.min(100.0, framePeak)
+                    } else {
+                        root.visualPeak = Math.max(45.0, root.visualPeak * 0.98)
+                    }
                     root.rawValues = vals
                     silenceTimer.restart()
                 } else if (root.hasAudio) {
-                    // Audio just paused or quiet: let bars decay smoothly to 0
+                    // Audio paused: set values to 0 directly
                     root.rawValues = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
                 }
             }
@@ -109,6 +119,7 @@ Rectangle {
         repeat: false
         onTriggered: {
             root.hasAudio = false
+            root.visualPeak = 50.0
             root.rawValues = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
         }
     }
@@ -125,31 +136,12 @@ Rectangle {
         }
     }
 
-    // Center container for bars with vertical slide/fade-from-down transition
+    // Center container for bars
     Item {
         id: barsContainer
         anchors.centerIn: parent
         width: barsRow.implicitWidth
         height: root.maxBarHeight
-
-        // Fade in from below: opacity + upward translation
-        opacity: root.hasAudio ? 1.0 : 0.0
-        transform: Translate {
-            y: root.hasAudio ? 0 : 10
-            Behavior on y {
-                NumberAnimation {
-                    duration: 350
-                    easing.type: Easing.OutQuint
-                }
-            }
-        }
-
-        Behavior on opacity {
-            NumberAnimation {
-                duration: 300
-                easing.type: Easing.OutQuint
-            }
-        }
 
         Row {
             id: barsRow
@@ -165,22 +157,10 @@ Rectangle {
                     radius: root.barRadius
                     color: root.active ? Theme.background : Theme.primary
 
-                    // Target height calculated from spectrum value (0-100)
-                    property real targetHeight: {
-                        let v = (root.rawValues && root.rawValues[index] !== undefined)
-                            ? root.rawValues[index] : 0
-                        return Math.max(root.minBarHeight, (v / 100.0) * root.maxBarHeight)
-                    }
-
-                    height: targetHeight
-
-                    // Silky-smooth 144Hz height animation rising upwards from bottom
-                    Behavior on height {
-                        NumberAnimation {
-                            duration: 90
-                            easing.type: Easing.OutCubic
-                        }
-                    }
+                    // Direct instant update with adaptive dynamic normalization
+                    height: (root.rawValues && root.rawValues[index] !== undefined)
+                        ? Math.max(root.minBarHeight, Math.min(root.maxBarHeight, (root.rawValues[index] / root.visualPeak) * root.maxBarHeight))
+                        : root.minBarHeight
 
                     Behavior on color {
                         ColorAnimation { duration: 500; easing.type: Easing.OutQuint }

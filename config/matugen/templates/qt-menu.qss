@@ -11,7 +11,7 @@ QMenu {
     border-radius: 8px;
     padding: 6px;
 
-    font-family: "Fira Sans";
+    font-family: "Inter Medium";
     font-size: 14px;
     font-weight: 600;
 }
@@ -24,7 +24,7 @@ QMenu::item {
     margin: 1px 2px;
     border-radius: 5px;
 
-    font-family: "Fira Sans";
+    font-family: "Inter Medium";
     font-size: 14px;
     font-weight: 600;
 }
@@ -78,7 +78,7 @@ QTabBar::tab {
     border-top-right-radius: 6px;
     padding: 7px 16px;
     margin-right: 3px;
-    font-family: "Fira Sans";
+    font-family: "Inter Medium";
     font-size: 13px;
 }
 
@@ -105,7 +105,7 @@ QPushButton {
     border: 1px solid {{colors.outline_variant.default.hex}};
     border-radius: 6px;
     padding: 8px 14px;
-    font-family: "Fira Sans";
+    font-family: "Inter Medium";
     font-size: 13px;
     font-weight: 500;
 }
@@ -124,7 +124,7 @@ QPushButton:pressed {
 QCheckBox {
     spacing: 8px;
     color: {{colors.on_surface.default.hex}};
-    font-family: "Fira Sans";
+    font-family: "Inter Medium";
     font-size: 13px;
 }
 
@@ -150,13 +150,13 @@ QFileDialog {
     color: #dedede;
     border: 1px solid #2e2e33;
     border-radius: 8px;
-    font-family: "Fira Sans", sans-serif;
+    font-family: "Inter Medium", sans-serif;
     font-size: 13px;
 }
 
 QFileDialog QWidget {
     color: #dedede;
-    font-family: "Fira Sans", sans-serif;
+    font-family: "Inter Medium", sans-serif;
     font-size: 13px;
 }
 

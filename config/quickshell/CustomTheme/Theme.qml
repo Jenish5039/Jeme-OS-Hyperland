@@ -7,7 +7,7 @@ QtObject {
     id: root
     
     // Static properties
-    readonly property string fontFamily: "Fira Sans Semibold"
+    readonly property string fontFamily: "Inter Medium"
     
     // Dynamic color properties
     property color background: "#1a1110"

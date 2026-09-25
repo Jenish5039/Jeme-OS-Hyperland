@@ -173,10 +173,48 @@ def find_steam_libraries():
     return list(libraries)
 
 
+def query_hyprland_socket(cmd, sig=None):
+    """Query Hyprland socket directly without spawning subprocesses."""
+    try:
+        uid = os.getuid()
+        if not sig:
+            sig = os.environ.get("HYPRLAND_INSTANCE_SIGNATURE", "")
+        if not sig:
+            hypr_dir = Path(f"/run/user/{uid}/hypr")
+            if hypr_dir.is_dir():
+                sigs = list(hypr_dir.glob("*"))
+                if sigs:
+                    sig = sigs[0].name
+        if not sig:
+            return None
+        sock_path = f"/run/user/{uid}/hypr/{sig}/.socket.sock"
+        if not os.path.exists(sock_path):
+            return None
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        s.settimeout(0.5)
+        s.connect(sock_path)
+        s.sendall(cmd.encode("utf-8"))
+        res = b""
+        while True:
+            chunk = s.recv(8192)
+            if not chunk:
+                break
+            res += chunk
+        s.close()
+        return json.loads(res.decode("utf-8"))
+    except Exception:
+        return None
+
+
 def get_active_monitors():
     """Query Hyprland for currently active display outputs."""
+    data = query_hyprland_socket("j/monitors")
+    if data and isinstance(data, list):
+        monitors = [m["name"] for m in data if not m.get("disabled", False)]
+        if monitors:
+            return monitors
     try:
-        out = subprocess.check_output(["hyprctl", "monitors", "-j"], text=True, timeout=2)
+        out = subprocess.check_output(["hyprctl", "monitors", "-j"], text=True, timeout=1)
         data = json.loads(out)
         monitors = [m["name"] for m in data if not m.get("disabled", False)]
         if monitors:
@@ -186,29 +224,38 @@ def get_active_monitors():
     return ["eDP-1"]
 
 
-def is_valid_image(path):
-    """Validate that an image exists, is readable, has non-zero dimensions, and is not pure black."""
-    if not path or not Path(path).is_file():
+def is_valid_image(path, check_black=False):
+    """Validate that an image exists, is readable, and has valid dimensions without full decompression overhead."""
+    if not path:
         return False
+    p = Path(path)
+    if not p.is_file():
+        return False
+    try:
+        if p.stat().st_size < 100:
+            return False
+    except Exception:
+        return False
+
     if PILImage is not None:
         try:
-            with PILImage.open(path) as im:
+            with PILImage.open(p) as im:
                 w, h = im.size
                 if w <= 0 or h <= 0:
                     return False
-                rgb = im.convert("RGB")
-                ext = rgb.getextrema()
-                if all(hi <= 15 for lo, hi in ext):
-                    return False
+                if check_black:
+                    rgb = im.convert("RGB")
+                    ext = rgb.getextrema()
+                    if all(hi <= 15 for lo, hi in ext):
+                        return False
                 return True
         except Exception:
             return False
     else:
         try:
-            return Path(path).stat().st_size > 1000
+            return p.stat().st_size > 500
         except Exception:
             return False
-
 
 def extract_best_gif_frame(gif_path, out_path, target_w=960, target_h=540):
     """Extract the most representative (non-black) frame from an animated GIF."""
@@ -682,9 +729,9 @@ class WaywallenBackend:
         """Ensure headless Waywallen daemon and host layer-shell are active with readiness-driven polling."""
         if not self.is_daemon_alive():
             if self.native_bin.is_file():
-                cmd = [str(self.native_bin), "--no-ui", "--no-tray", "--plugin", str(self.plugin_dir)]
+                cmd = [str(self.native_bin), "--no-ui", "--no-tray", "--no-restore", "--plugin", str(self.plugin_dir)]
             else:
-                cmd = ["flatpak", "run", "org.waywallen.waywallen", "--no-ui", "--no-tray"]
+                cmd = ["flatpak", "run", "org.waywallen.waywallen", "--no-ui", "--no-tray", "--no-restore"]
 
             subprocess.Popen(
                 cmd,
@@ -697,12 +744,6 @@ class WaywallenBackend:
                 time.sleep(0.01)
                 if self.is_daemon_alive() and self.sock_path.exists():
                     break
-
-        # Wait up to 500ms for daemon's layer-shell to initialize
-        for _ in range(50):
-            if self.is_layer_shell_alive():
-                break
-            time.sleep(0.01)
 
         if not self.is_layer_shell_alive() and self.layer_shell_bin.is_file() and self.sock_path.exists():
             subprocess.Popen(
@@ -790,12 +831,26 @@ class WaywallenBackend:
                     ["busctl", "--user", "call", "org.waywallen.waywallen.Daemon", "/org/waywallen/waywallen/Daemon", "org.waywallen.waywallen.Daemon1", "ApplyById", "s", db_id],
                     text=True, timeout=5
                 )
+                self.mute()
                 return {"success": True, "task": out.strip(), "item": item}
             except Exception as e:
                 last_err = str(e)
                 time.sleep(0.3)
 
         return {"success": False, "error": f"D-Bus ApplyById call failed: {last_err}"}
+
+    def mute(self):
+        """Mute Waywallen backend over D-Bus to eliminate audio processing and PipeWire stream overhead."""
+        if self.is_daemon_alive():
+            try:
+                subprocess.run(
+                    ["busctl", "--user", "call", "org.waywallen.waywallen.Daemon", "/org/waywallen/waywallen/Daemon", "org.waywallen.waywallen.Daemon1", "Mute"],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2, check=False
+                )
+                return True
+            except Exception:
+                pass
+        return False
 
     def pause(self):
         if self.is_daemon_alive():
@@ -835,8 +890,9 @@ class WaywallenBackend:
                 try:
                     content = config_path.read_text(encoding="utf-8")
                     new_content = re.sub(r'fps\s*=\s*["\']?[0-9]+["\']?', f'fps = "{fps}"', content)
-                    config_path.write_text(new_content, encoding="utf-8")
-                    updated = True
+                    if new_content != content:
+                        config_path.write_text(new_content, encoding="utf-8")
+                        updated = True
                 except Exception:
                     pass
         return updated
@@ -850,7 +906,10 @@ class WaywallenBackend:
                     break
                 time.sleep(0.02)
         subprocess.run(["pkill", "-TERM", "-f", "waywallen-layer-shell"], check=False)
-        time.sleep(0.1)
+        for _ in range(50):
+            if not self.is_layer_shell_alive():
+                break
+            time.sleep(0.02)
         self.ensure_running()
 
     def stop(self):
@@ -858,7 +917,10 @@ class WaywallenBackend:
         if self.is_daemon_alive():
             subprocess.run(["busctl", "--user", "call", "org.waywallen.waywallen.Daemon", "/org/waywallen/waywallen/Daemon", "org.waywallen.waywallen.Daemon1", "Quit"], check=False)
         subprocess.run(["pkill", "-TERM", "-f", "waywallen-layer-shell"], check=False)
-        time.sleep(0.3)
+        for _ in range(50):
+            if not self.is_layer_shell_alive():
+                break
+            time.sleep(0.02)
         return True
 
 
@@ -965,6 +1027,39 @@ def is_on_battery():
     return ac_found
 
 
+def get_power_profile():
+    """Query current system power profile (power-saver, balanced, performance)."""
+    if HAS_GIO:
+        try:
+            con = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+            res = con.call_sync(
+                "net.hadess.PowerProfiles",
+                "/net/hadess/PowerProfiles",
+                "org.freedesktop.DBus.Properties",
+                "Get",
+                GLib.Variant("(ss)", ("net.hadess.PowerProfiles", "ActiveProfile")),
+                GLib.VariantType("(v)"),
+                Gio.DBusCallFlags.NONE,
+                500,
+                None
+            )
+            val = res.unpack()[0]
+            return str(val).strip().lower()
+        except Exception:
+            pass
+    try:
+        out = subprocess.check_output(
+            ["busctl", "get-property", "net.hadess.PowerProfiles", "/net/hadess/PowerProfiles", "net.hadess.PowerProfiles", "ActiveProfile"],
+            text=True, timeout=1
+        ).strip()
+        parts = out.split('"')
+        if len(parts) >= 2:
+            return parts[1].strip().lower()
+    except Exception:
+        pass
+    return "balanced"
+
+
 def get_current_state():
     """Retrieve verified current backend state."""
     mode = get_current_mode()
@@ -973,6 +1068,7 @@ def get_current_state():
         "paused": False,
         "pause_reasons": [],
         "mode": mode,
+        "playback_mode": "fps",
         "id": "",
         "title": "",
         "monitor": "all",
@@ -993,6 +1089,7 @@ def get_current_state():
         state["running"] = True
         state.setdefault("paused", False)
         state.setdefault("pause_reasons", [])
+        state.setdefault("playback_mode", "fps")
         state["pid"] = BACKEND.get_layer_shell_pid()
         if state.get("id"):
             wp = get_single_wallpaper(state["id"])
@@ -1004,6 +1101,7 @@ def get_current_state():
         state["paused"] = False
         state["pause_reasons"] = []
         state["mode"] = mode
+        state.setdefault("playback_mode", "fps")
         state["pid"] = None
         return state
 
@@ -1030,15 +1128,24 @@ def pause_wallpaper(reason="manual"):
     return {"success": True, "paused": True, "pause_reasons": state["pause_reasons"]}
 
 
-def resume_wallpaper(reason="manual", force=False):
+def resume_wallpaper(reason="manual", force=False, user=False):
     """Resume Wallpaper Engine if all pause conditions are cleared."""
     state = get_current_state()
     if not state.get("running", False):
         return {"success": False, "error": "Wallpaper Engine is not running"}
 
+    # If the user explicitly configured Static mode, automatic background triggers must not resume it unless user action
+    if state.get("playback_mode") == "static" and not user and not force:
+        return {"success": True, "paused": True, "playback_mode": "static"}
+
     reasons = set(state.get("pause_reasons", []))
+    if user:
+        if "static" in reasons:
+            reasons.remove("static")
+        state["playback_mode"] = "fps"
     if force:
         reasons.clear()
+        state["playback_mode"] = "fps"
     elif reason in reasons:
         reasons.remove(reason)
 
@@ -1058,14 +1165,14 @@ def resume_wallpaper(reason="manual", force=False):
 
 
 def stop_wallpaper():
-    """Safely terminate currently running Waywallen without touching awww."""
+    """Safely terminate currently running Waywallen."""
     BACKEND.stop()
-
     new_state = {
         "running": False,
         "paused": False,
         "pause_reasons": [],
         "mode": "static",
+        "playback_mode": "fps",
         "id": "",
         "title": "",
         "monitor": "",
@@ -1146,7 +1253,21 @@ def stop_power_daemon():
     return {"success": True, "stopped": True}
 
 
-def start_wallpaper(wp_target, monitor="all", fps=10, is_preview=False, silent=True):
+def stop_awww():
+    """Completely terminate awww-daemon when transitioning to Wallpaper Engine."""
+    try:
+        subprocess.run(["pkill", "-TERM", "-x", "awww-daemon"], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        for _ in range(20):
+            time.sleep(0.01)
+            if subprocess.run(["pgrep", "-x", "awww-daemon"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode != 0:
+                break
+        else:
+            subprocess.run(["pkill", "-KILL", "-x", "awww-daemon"], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
+
+
+def start_wallpaper(wp_target, monitor="all", fps=10, is_preview=False, silent=True, playback_mode=None):
     """Start Waywallen strictly attached to desktop layer on target monitor(s)."""
     target_id = str(wp_target)
     target_folder = ""
@@ -1175,13 +1296,28 @@ def start_wallpaper(wp_target, monitor="all", fps=10, is_preview=False, silent=T
                 thumbnail_img = item["thumbnail"]
                 break
 
+    # Determine desired playback mode from config if not explicitly supplied
+    cfg_saved = get_saved_config()
+    if playback_mode is None:
+        if fps == "Static" or str(fps).strip().lower() == "static":
+            playback_mode = "static"
+        else:
+            playback_mode = "fps" if fps is not None else cfg_saved.get("playback_mode", "fps")
+
+    is_static = (str(playback_mode).strip().lower() == "static" or str(fps).strip().lower() == "static")
+    effective_fps = 10 if is_static else fps
+    try:
+        effective_fps_int = int(effective_fps)
+    except ValueError:
+        effective_fps_int = 10
+
     # Ensure Waywallen config.toml reflects desired FPS
     current_state = get_current_state()
     current_running_fps = current_state.get("fps", 10)
-    BACKEND.update_config_fps(fps)
+    fps_changed = BACKEND.update_config_fps(effective_fps_int)
 
     # If daemon is running but with a different FPS, restart so new FPS takes effect
-    if BACKEND.is_daemon_alive() and current_running_fps != fps:
+    if BACKEND.is_daemon_alive() and (fps_changed or (str(current_running_fps).isdigit() and int(current_running_fps) != effective_fps_int)):
         BACKEND.restart_daemon()
 
     res = BACKEND.apply(target_id)
@@ -1191,6 +1327,7 @@ def start_wallpaper(wp_target, monitor="all", fps=10, is_preview=False, silent=T
             "paused": False,
             "pause_reasons": [],
             "mode": "static",
+            "playback_mode": "fps",
             "id": "",
             "title": "",
             "monitor": "",
@@ -1203,11 +1340,55 @@ def start_wallpaper(wp_target, monitor="all", fps=10, is_preview=False, silent=T
             json.dump(new_state, f, indent=2)
         return res
 
+    # If starting in static mode, brief pause to let initial frame render then freeze with Pause()!
+    if is_static:
+        time.sleep(0.25)
+        BACKEND.pause()
+        state = {
+            "running": True,
+            "paused": True,
+            "pause_reasons": ["static"],
+            "mode": "preview" if is_preview else "wallpaper-engine",
+            "playback_mode": "static",
+            "id": target_id,
+            "title": title,
+            "type": wp_type,
+            "folder": target_folder,
+            "preview": preview_img,
+            "thumbnail": thumbnail_img,
+            "monitor": monitor or "all",
+            "fps": "Static",
+            "pid": BACKEND.get_layer_shell_pid(),
+            "started_at": time.time(),
+            "last_error": ""
+        }
+        with open(STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump(state, f, indent=2)
+        if not is_preview:
+            set_current_mode("wallpaper-engine")
+            save_config({
+                "id": target_id,
+                "title": title,
+                "type": wp_type,
+                "monitor": monitor or "all",
+                "fps": "Static",
+                "playback_mode": "static",
+                "silent": silent
+            })
+            record_recent(target_id)
+        stop_awww()
+        ensure_power_daemon()
+        return {"success": True, "state": state}
+
+    # Live Mode
+    BACKEND.resume()
+
     state = {
         "running": True,
         "paused": False,
         "pause_reasons": [],
         "mode": "preview" if is_preview else "wallpaper-engine",
+        "playback_mode": "fps",
         "id": target_id,
         "title": title,
         "type": wp_type,
@@ -1215,7 +1396,7 @@ def start_wallpaper(wp_target, monitor="all", fps=10, is_preview=False, silent=T
         "preview": preview_img,
         "thumbnail": thumbnail_img,
         "monitor": monitor or "all",
-        "fps": fps,
+        "fps": effective_fps_int,
         "pid": BACKEND.get_layer_shell_pid(),
         "started_at": time.time(),
         "last_error": ""
@@ -1231,46 +1412,119 @@ def start_wallpaper(wp_target, monitor="all", fps=10, is_preview=False, silent=T
             "title": title,
             "type": wp_type,
             "monitor": monitor or "all",
-            "fps": fps,
+            "fps": effective_fps_int,
+            "playback_mode": "fps",
             "silent": silent
         })
         record_recent(target_id)
 
+    stop_awww()
     ensure_power_daemon()
     return {"success": True, "state": state}
 
 
+def set_static():
+    """
+    Switch active wallpaper to static mode via in-place Waywallen Pause().
+    Freezes the current live rendered frame directly on Layer 0.
+    """
+    state = get_current_state()
+
+    # If already in static mode and paused, no-op
+    if state.get("playback_mode") == "static" and state.get("running") and state.get("paused"):
+        return {"success": True, "paused": True, "playback_mode": "static", "already_static": True}
+
+    current_id = state.get("id") or get_saved_config().get("id")
+    if not current_id:
+        return {"success": False, "error": "No active wallpaper to pause"}
+
+    # Ensure Waywallen is running
+    if not BACKEND.is_daemon_alive():
+        return start_wallpaper(current_id, playback_mode="static")
+
+    # In-place Pause via D-Bus
+    BACKEND.pause()
+
+    reasons = set(state.get("pause_reasons", []))
+    reasons.add("static")
+
+    state["running"] = True
+    state["paused"] = True
+    state["pause_reasons"] = sorted(list(reasons))
+    state["playback_mode"] = "static"
+    state["fps"] = "Static"
+    state["pid"] = BACKEND.get_layer_shell_pid()
+    state["updated_at"] = time.time()
+
+    cfg = get_saved_config()
+    cfg["id"] = current_id
+    cfg["playback_mode"] = "static"
+    cfg["fps"] = "Static"
+    save_config(cfg)
+
+    with open(STATE_FILE, "w", encoding="utf-8") as f:
+        json.dump(state, f, indent=2)
+
+    return {"success": True, "paused": True, "playback_mode": "static", "fps": "Static"}
+
+
 def set_fps(fps):
-    """Dynamically update wallpaper FPS and reapply to active wallpaper."""
+    """Dynamically update wallpaper FPS or transition to Static mode (Pause)."""
+    if str(fps).strip().lower() == "static":
+        return set_static()
+
     try:
         fps_val = int(fps)
     except ValueError:
         return {"success": False, "error": f"Invalid FPS value: {fps}"}
 
-    BACKEND.update_config_fps(fps_val)
     state = get_current_state()
-    state["fps"] = fps_val
+    target_id = state.get("id") or get_saved_config().get("id")
 
     # Save to config
     cfg = get_saved_config()
     cfg["fps"] = fps_val
+    cfg["playback_mode"] = "fps"
     save_config(cfg)
 
-    if state.get("running") and state.get("id"):
-        target_id = state.get("id")
+    # If not currently running, start it
+    if not state.get("running") or not BACKEND.is_daemon_alive():
+        if target_id:
+            return start_wallpaper(target_id, fps=fps_val, playback_mode="fps")
+        return {"success": False, "error": "No wallpaper specified or configured"}
+
+    # 1. Update FPS in Waywallen config
+    current_running_fps = state.get("fps", 10)
+    fps_changed = BACKEND.update_config_fps(fps_val)
+
+    # 2. If FPS value actually changed while running live, restart daemon with new FPS
+    if fps_changed or (str(current_running_fps).isdigit() and int(current_running_fps) != fps_val):
         BACKEND.restart_daemon()
-        res = BACKEND.apply(target_id)
-        state["pid"] = BACKEND.get_layer_shell_pid()
-        with open(STATE_FILE, "w", encoding="utf-8") as f:
-            json.dump(state, f, indent=2)
-        return {"success": True, "fps": fps_val, "reapplied": True, "result": res}
+        BACKEND.apply(target_id)
+        time.sleep(0.2)
+
+    # 3. Resume rendering (unpausing if in static mode)
+    BACKEND.resume()
+
+    reasons = set(state.get("pause_reasons", []))
+    if "static" in reasons:
+        reasons.remove("static")
+
+    state["running"] = True
+    state["fps"] = fps_val
+    state["playback_mode"] = "fps"
+    state["pause_reasons"] = sorted(list(reasons))
+    state["paused"] = bool(reasons)
+    state["pid"] = BACKEND.get_layer_shell_pid()
+    state["resumed_at"] = time.time()
 
     with open(STATE_FILE, "w", encoding="utf-8") as f:
         json.dump(state, f, indent=2)
-    return {"success": True, "fps": fps_val, "reapplied": False}
+
+    return {"success": True, "fps": fps_val, "playback_mode": "fps", "paused": state["paused"]}
 
 
-def apply_theme_from_wallpaper(wp_target):
+def apply_theme_from_wallpaper(wp_target, is_startup=False):
     """Bridge selected Wallpaper Engine preview to existing Matugen theme pipeline."""
     target_id = str(wp_target)
     preview_img = ""
@@ -1286,12 +1540,18 @@ def apply_theme_from_wallpaper(wp_target):
                 break
 
     if not preview_img or not Path(preview_img).is_file():
-        ws_dir = Path.home() / ".local/share/Steam/steamapps/workshop/content/431960" / target_id
-        if ws_dir.is_dir():
-            for p in ["preview.jpg", "preview.png", "preview.gif", "preview.jpeg"]:
-                if (ws_dir / p).is_file():
-                    preview_img = str(ws_dir / p)
-                    break
+        ws_dirs = [
+            Path.home() / ".local/share/Steam/steamapps/workshop/content/431960" / target_id,
+            Path.home() / ".steam/steam/steamapps/workshop/content/431960" / target_id
+        ]
+        for ws_dir in ws_dirs:
+            if ws_dir.is_dir():
+                for p in ["preview.jpg", "preview.png", "preview.gif", "preview.jpeg"]:
+                    if (ws_dir / p).is_file():
+                        preview_img = str(ws_dir / p)
+                        break
+            if preview_img:
+                break
 
     if not preview_img or not Path(preview_img).is_file():
         return {"success": False, "error": "No preview image available for color extraction"}
@@ -1299,11 +1559,13 @@ def apply_theme_from_wallpaper(wp_target):
     source_image = preview_img
     if preview_img.lower().endswith(".gif"):
         extracted_frame = CACHE_DIR / f"{target_id}_frame.png"
-        try:
-            subprocess.run(["magick", f"{preview_img}[0]", str(extracted_frame)], check=True)
+        if not extract_best_gif_frame(Path(preview_img), extracted_frame, target_w=1920, target_h=1080):
+            try:
+                subprocess.run(["magick", f"{preview_img}[0]", str(extracted_frame)], check=True)
+            except Exception:
+                pass
+        if extracted_frame.is_file() and is_valid_image(extracted_frame):
             source_image = str(extracted_frame)
-        except Exception:
-            pass
 
     gtk_settings = Path.home() / ".config" / "gtk-3.0" / "settings.ini"
     mode = "dark"
@@ -1338,29 +1600,77 @@ def apply_theme_from_wallpaper(wp_target):
         except Exception:
             pass
 
-    try:
-        subprocess.run(["magick", source_image, "-resize", "75%", str(blurred_wp)], check=True)
-        if blur_val != "0x0":
-            subprocess.run(["magick", str(blurred_wp), "-blur", blur_val, str(blurred_wp)], check=True)
-        subprocess.run(["magick", source_image, "-gravity", "Center", "-extent", "1:1", str(square_wp)], check=True)
-        rasi_file.write_text(f'* {{ current-image: url("{str(blurred_wp)}", height); }}\n')
-    except Exception:
-        pass
+    # Ultra-fast high quality image variant generation via PIL with fallback
+    rendered_images = False
+    if PILImage is not None:
+        try:
+            from PIL import ImageFilter
+            with PILImage.open(source_image) as im:
+                rgb = im.convert("RGB")
+                w, h = rgb.size
+
+                # 1. Blurred 1080p Wallpaper
+                if blur_val != "0x0":
+                    radius = 12
+                    try:
+                        if "x" in blur_val:
+                            radius = max(4, min(30, int(blur_val.split("x")[1])))
+                        else:
+                            radius = max(4, min(30, int(blur_val)))
+                    except Exception:
+                        radius = 12
+                    small = rgb.resize((480, 270), getattr(PILImage, "Resampling", PILImage).BILINEAR)
+                    blurred = small.filter(ImageFilter.GaussianBlur(radius=radius))
+                    blurred_1080 = blurred.resize((1920, 1080), getattr(PILImage, "Resampling", PILImage).BICUBIC)
+                    blurred_1080.save(blurred_wp, format="PNG", optimize=True)
+                else:
+                    scale = max(1920 / w, 1080 / h)
+                    nw, nh = max(1, int(w * scale)), max(1, int(h * scale))
+                    resized = rgb.resize((nw, nh), getattr(PILImage, "Resampling", PILImage).LANCZOS)
+                    left = (nw - 1920) // 2
+                    top = (nh - 1080) // 2
+                    cropped = resized.crop((left, top, left + 1920, top + 1080))
+                    cropped.save(blurred_wp, format="PNG", optimize=True)
+
+                # 2. Crisp 560x560 Square Widget
+                min_dim = min(w, h)
+                left = (w - min_dim) // 2
+                top = (h - min_dim) // 2
+                square_crop = rgb.crop((left, top, left + min_dim, top + min_dim))
+                square_560 = square_crop.resize((560, 560), getattr(PILImage, "Resampling", PILImage).LANCZOS)
+                square_560.save(square_wp, format="PNG", optimize=True)
+
+                rasi_file.write_text(f'* {{ current-image: url("{str(blurred_wp)}", height); }}\n')
+                rendered_images = True
+        except Exception:
+            pass
+
+    if not rendered_images:
+        try:
+            if blur_val != "0x0":
+                subprocess.run(["magick", f"{source_image}[0]", "-resize", "1920x1080^", "-gravity", "center", "-extent", "1920x1080", "-blur", blur_val, str(blurred_wp)], check=True)
+            else:
+                subprocess.run(["magick", f"{source_image}[0]", "-resize", "1920x1080^", "-gravity", "center", "-extent", "1920x1080", str(blurred_wp)], check=True)
+            subprocess.run(["magick", f"{source_image}[0]", "-gravity", "Center", "-extent", "1:1", "-resize", "560x560", str(square_wp)], check=True)
+            rasi_file.write_text(f'* {{ current-image: url("{str(blurred_wp)}", height); }}\n')
+        except Exception:
+            pass
 
     qt6ct_conf = Path.home() / ".config" / "qt6ct" / "qt6ct.conf"
     if qt6ct_conf.is_file():
         qt6ct_conf.touch()
 
-    subprocess.run(["qs", "ipc", "call", "theme-manager", "reload"], check=False)
-    subprocess.run(["qs", "-p", str(Path.home() / ".local/share/ml4w-dotfiles-settings/quickshell"), "ipc", "call", "theme-manager", "reload"], check=False)
-    subprocess.run(["swaync-client", "-rs"], check=False)
-    subprocess.run(["pywalfox", "update"], check=False)
+    if not is_startup:
+        subprocess.run(["qs", "ipc", "call", "theme-manager", "reload"], check=False)
+        subprocess.run(["qs", "-p", str(Path.home() / ".local/share/ml4w-dotfiles-settings/quickshell"), "ipc", "call", "theme-manager", "reload"], check=False)
+        subprocess.run(["swaync-client", "-rs"], check=False)
+        subprocess.run(["pywalfox", "update"], check=False)
 
-    waybar_disabled = Path.home() / ".config" / "ml4w" / "settings" / "waybar-disabled"
-    if not waybar_disabled.is_file():
-        waybar_launcher = Path.home() / ".config" / "waybar" / "launch.sh"
-        if waybar_launcher.is_file():
-            subprocess.Popen([str(waybar_launcher)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        waybar_disabled = Path.home() / ".config" / "ml4w" / "settings" / "waybar-disabled"
+        if not waybar_disabled.is_file():
+            waybar_launcher = Path.home() / ".config" / "waybar" / "launch.sh"
+            if waybar_launcher.is_file():
+                subprocess.Popen([str(waybar_launcher)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     return {"success": True, "mode": mode, "source_image": source_image}
 
@@ -1374,9 +1684,10 @@ def autostart():
         monitor = cfg.get("monitor", "all")
         fps = cfg.get("fps", 10)
         silent = cfg.get("silent", True)
+        playback_mode = cfg.get("playback_mode", "fps")
 
         if wp_id:
-            res = start_wallpaper(wp_id, monitor=monitor, fps=fps, is_preview=False, silent=silent)
+            res = start_wallpaper(wp_id, monitor=monitor, fps=fps, is_preview=False, silent=silent, playback_mode=playback_mode)
             if res.get("success"):
                 ensure_power_daemon()
                 return {"success": True, "mode": "wallpaper-engine", "state": res.get("state")}
@@ -1392,15 +1703,23 @@ class PowerDaemon:
         self.foreground = foreground
         self.running = True
         self.sleep_flag = False
+        self.power_profile = get_power_profile()
         self.stopped_by_battery = False
         self.sock = None
         self.signature = os.environ.get("HYPRLAND_INSTANCE_SIGNATURE", "")
         self.setup_signals()
-        self.setup_dbus_sleep_listener()
+        self.setup_dbus_listeners()
 
     def log(self, msg):
+        log_line = f"[{time.strftime('%H:%M:%S')}.{int(time.time()*1000)%1000:03d}] [PowerDaemon] {msg}"
         if self.foreground:
-            print(f"[{time.strftime('%H:%M:%S')}] [PowerDaemon] {msg}", flush=True)
+            print(log_line, flush=True)
+        try:
+            log_file = CACHE_DIR / "power_daemon.log"
+            with open(log_file, "a", encoding="utf-8") as f:
+                f.write(log_line + "\n")
+        except Exception:
+            pass
 
     def setup_signals(self):
         signal.signal(signal.SIGTERM, self.handle_exit)
@@ -1410,7 +1729,7 @@ class PowerDaemon:
         self.log("Exiting on signal...")
         self.running = False
         state = get_current_state()
-        if state.get("running") and state.get("paused"):
+        if state.get("running") and state.get("paused") and state.get("playback_mode") != "static":
             resume_wallpaper(force=True)
         if DAEMON_PID_FILE.is_file():
             try:
@@ -1419,7 +1738,7 @@ class PowerDaemon:
                 pass
         sys.exit(0)
 
-    def setup_dbus_sleep_listener(self):
+    def setup_dbus_listeners(self):
         if not HAS_GIO:
             return
         def on_sleep_signal(conn, sender, path, iface, sig_name, params, user_data):
@@ -1427,6 +1746,16 @@ class PowerDaemon:
                 val = params.unpack()[0]
                 self.sleep_flag = bool(val)
                 self.log(f"DBus PrepareForSleep signal: {self.sleep_flag}")
+            except Exception:
+                pass
+
+        def on_power_profile_signal(conn, sender, path, iface, sig_name, params, user_data):
+            try:
+                unpacked = params.unpack()
+                changed_props = unpacked[1]
+                if "ActiveProfile" in changed_props:
+                    self.power_profile = str(changed_props["ActiveProfile"]).strip().lower()
+                    self.log(f"DBus PowerProfile changed: {self.power_profile}")
             except Exception:
                 pass
 
@@ -1442,10 +1771,20 @@ class PowerDaemon:
                 on_sleep_signal,
                 None
             )
+            con.signal_subscribe(
+                "net.hadess.PowerProfiles",
+                "org.freedesktop.DBus.Properties",
+                "PropertiesChanged",
+                "/net/hadess/PowerProfiles",
+                None,
+                Gio.DBusSignalFlags.NONE,
+                on_power_profile_signal,
+                None
+            )
             loop = GLib.MainLoop()
             t = threading.Thread(target=loop.run, daemon=True)
             t.start()
-            self.log("DBus sleep listener initialized")
+            self.log("DBus sleep and power profile listeners initialized")
         except Exception as e:
             self.log(f"DBus listener init failed (will use fallback): {e}")
 
@@ -1485,35 +1824,84 @@ class PowerDaemon:
                 self.sock = None
         return False
 
-    def is_fullscreen_active(self):
-        try:
-            out = subprocess.check_output(["hyprctl", "workspaces", "-j"], text=True, timeout=1)
-            workspaces = json.loads(out)
-            mon_out = subprocess.check_output(["hyprctl", "monitors", "-j"], text=True, timeout=1)
-            monitors = json.loads(mon_out)
-            active_ws_ids = {m["activeWorkspace"]["id"] for m in monitors if "activeWorkspace" in m}
+    def query_socket(self, cmd):
+        return query_hyprland_socket(cmd, sig=self.signature)
 
-            for ws in workspaces:
-                if ws.get("id") in active_ws_ids and ws.get("hasfullscreen", False):
-                    return True
-        except Exception:
-            pass
-        return False
+    def evaluate_hyprland_state(self):
+        """Query Hyprland socket once for both monitor and client states without subprocess fork."""
+        fullscreen_active = False
+        dpms_disabled = False
+
+        monitors = self.query_socket("j/monitors")
+        if monitors is None:
+            try:
+                mon_out = subprocess.check_output(["hyprctl", "monitors", "-j"], text=True, timeout=1)
+                monitors = json.loads(mon_out)
+            except Exception:
+                monitors = []
+
+        active_ws_ids = set()
+        if isinstance(monitors, list):
+            for m in monitors:
+                if not m.get("disabled", False):
+                    if not m.get("dpmsStatus", True):
+                        dpms_disabled = True
+                    ws = m.get("activeWorkspace", {})
+                    if isinstance(ws, dict) and "id" in ws:
+                        active_ws_ids.add(ws["id"])
+
+        clients = self.query_socket("j/clients")
+        if clients is None:
+            try:
+                client_out = subprocess.check_output(["hyprctl", "clients", "-j"], text=True, timeout=1)
+                clients = json.loads(client_out)
+            except Exception:
+                clients = []
+
+        if isinstance(clients, list):
+            for c in clients:
+                ws = c.get("workspace", {})
+                if isinstance(ws, dict) and ws.get("id") in active_ws_ids:
+                    if c.get("fullscreen") == 2 or c.get("fullscreenClient") == 2:
+                        fullscreen_active = True
+                        break
+
+        return fullscreen_active, dpms_disabled
+
+    def is_power_saver_active(self):
+        profile = get_power_profile()
+        return "saver" in profile or "save" in profile
+
+    def is_fullscreen_active(self):
+        fs, _ = self.evaluate_hyprland_state()
+        return fs
 
     def is_screen_locked(self):
-        res = subprocess.run(["pgrep", "-x", "hyprlock"], stdout=subprocess.DEVNULL)
-        return res.returncode == 0
-
-    def is_dpms_disabled(self):
         try:
-            mon_out = subprocess.check_output(["hyprctl", "monitors", "-j"], text=True, timeout=1)
-            monitors = json.loads(mon_out)
-            for m in monitors:
-                if not m.get("disabled", False) and not m.get("dpmsStatus", True):
-                    return True
+            for p in os.scandir('/proc'):
+                if p.name.isdigit():
+                    try:
+                        with open(os.path.join(p.path, 'comm'), 'rb') as f:
+                            if f.read().strip() == b'hyprlock':
+                                return True
+                    except (FileNotFoundError, PermissionError, ProcessLookupError):
+                        continue
         except Exception:
             pass
         return False
+
+    def is_dpms_disabled(self):
+        _, dpms = self.evaluate_hyprland_state()
+        return dpms
+
+    def read_cached_state(self):
+        if not STATE_FILE.is_file():
+            return {"running": False, "mode": "static", "paused": False, "playback_mode": "fps"}
+        try:
+            with open(STATE_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {"running": False, "mode": "static", "paused": False, "playback_mode": "fps"}
 
     def run(self):
         DAEMON_PID_FILE.write_text(str(os.getpid()))
@@ -1521,10 +1909,16 @@ class PowerDaemon:
 
         self.connect_socket()
         socket_buf = ""
+        last_slow_check = 0.0
+        cached_battery = False
+        cached_power_saver = False
+        cached_screen_locked = self.is_screen_locked()
+        cached_fullscreen, cached_dpms_disabled = self.evaluate_hyprland_state()
 
         while self.running:
             try:
-                state = get_current_state()
+                now = time.time()
+                state = self.read_cached_state()
                 mode = state.get("mode")
                 running = state.get("running", False)
 
@@ -1533,29 +1927,38 @@ class PowerDaemon:
                         self.log("AC restored; restarting wallpaper engine from battery stop state")
                         self.stopped_by_battery = False
                         autostart()
-                    time.sleep(1.0)
+                    time.sleep(2.0)
                     continue
 
+                # Run slow checks every 3.0s (battery, power profile)
+                if now - last_slow_check >= 3.0:
+                    last_slow_check = now
+                    cached_battery = is_on_battery()
+                    cached_power_saver = self.is_power_saver_active()
+
                 bat_policy = get_battery_policy()
-                if bat_policy == "stop":
-                    if is_on_battery():
-                        self.log("Running on battery with 'stop' policy -> stopping wallpaper engine")
-                        self.stopped_by_battery = True
-                        stop_wallpaper()
-                        time.sleep(1.0)
-                        continue
+                if bat_policy == "stop" and cached_battery:
+                    self.log("Running on battery with 'stop' policy -> stopping wallpaper engine")
+                    self.stopped_by_battery = True
+                    stop_wallpaper()
+                    time.sleep(2.0)
+                    continue
 
                 reasons = set()
                 if self.sleep_flag:
                     reasons.add("system_sleep")
-                if self.is_screen_locked():
+                if cached_screen_locked:
                     reasons.add("lockscreen")
-                if self.is_dpms_disabled():
+                if cached_dpms_disabled:
                     reasons.add("dpms_off")
-                if self.is_fullscreen_active():
+                if cached_fullscreen:
                     reasons.add("fullscreen")
-                if bat_policy == "pause" and is_on_battery():
+                if cached_power_saver:
+                    reasons.add("power_saver")
+                if bat_policy == "pause" and cached_battery:
                     reasons.add("battery")
+                if state.get("playback_mode") == "static":
+                    reasons.add("static")
 
                 currently_paused = state.get("paused", False)
                 current_reasons = set(state.get("pause_reasons", []))
@@ -1563,7 +1966,7 @@ class PowerDaemon:
                 if reasons and not currently_paused:
                     self.log(f"Pausing wallpaper engine (reasons: {list(reasons)})")
                     pause_wallpaper()
-                    state = get_current_state()
+                    state = self.read_cached_state()
                     state["pause_reasons"] = sorted(list(reasons))
                     with open(STATE_FILE, "w", encoding="utf-8") as f:
                         json.dump(state, f, indent=2)
@@ -1580,28 +1983,50 @@ class PowerDaemon:
                 if not self.sock:
                     self.connect_socket()
 
+                # While screen is locked, poll faster (200ms) to resume immediately on unlock
+                poll_timeout = 0.2 if cached_screen_locked else 1.0
+
                 if self.sock:
                     try:
-                        r, _, _ = select.select([self.sock], [], [], 0.5)
+                        r, _, _ = select.select([self.sock], [], [], poll_timeout)
                         if r:
-                            data = self.sock.recv(4096).decode("utf-8", errors="ignore")
+                            data = self.sock.recv(8192).decode("utf-8", errors="ignore")
                             if data:
                                 socket_buf += data
                                 lines = socket_buf.split("\n")
                                 socket_buf = lines[-1]
+                                should_eval_hyprland = False
                                 for l in lines[:-1]:
-                                    pass
+                                    if any(evt in l for evt in [
+                                        "fullscreen>>", "activewindow>>", "activewindowv2>>",
+                                        "workspace>>", "workspacev2>>", "changefloatingmode>>",
+                                        "closewindow>>", "openwindow>>", "focusedmon>>", "dpms>>",
+                                        "lock>>", "unlock>>"
+                                    ]):
+                                        should_eval_hyprland = True
+                                        if "lock>>" in l:
+                                            cached_screen_locked = True
+                                        elif "unlock>>" in l:
+                                            cached_screen_locked = False
+                                if should_eval_hyprland:
+                                    cached_fullscreen, cached_dpms_disabled = self.evaluate_hyprland_state()
                             else:
                                 self.sock.close()
                                 self.sock = None
+                        else:
+                            # Periodic check on timeout
+                            cached_screen_locked = self.is_screen_locked()
+                            cached_fullscreen, cached_dpms_disabled = self.evaluate_hyprland_state()
                     except Exception:
                         self.sock = None
                 else:
-                    time.sleep(0.5)
+                    time.sleep(poll_timeout)
+                    cached_screen_locked = self.is_screen_locked()
+                    cached_fullscreen, cached_dpms_disabled = self.evaluate_hyprland_state()
 
             except Exception as e:
                 self.log(f"Loop error: {e}")
-                time.sleep(1.0)
+                time.sleep(2.0)
 
 
 def get_power_status():
@@ -1611,35 +2036,49 @@ def get_power_status():
     daemon_alive = daemon_pid is not None and is_daemon_pid_alive(daemon_pid)
 
     fullscreen_active = False
-    try:
-        out = subprocess.check_output(["hyprctl", "workspaces", "-j"], text=True, timeout=1)
-        workspaces = json.loads(out)
-        mon_out = subprocess.check_output(["hyprctl", "monitors", "-j"], text=True, timeout=1)
-        monitors = json.loads(mon_out)
-        active_ws_ids = {m["activeWorkspace"]["id"] for m in monitors if "activeWorkspace" in m}
-        for ws in workspaces:
-            if ws.get("id") in active_ws_ids and ws.get("hasfullscreen", False):
-                fullscreen_active = True
-                break
-    except Exception:
-        pass
+    dpms_active = True
+
+    monitors = query_hyprland_socket("j/monitors")
+    if monitors is None:
+        try:
+            mon_out = subprocess.check_output(["hyprctl", "monitors", "-j"], text=True, timeout=1)
+            monitors = json.loads(mon_out)
+        except Exception:
+            monitors = []
+
+    active_ws_ids = set()
+    if isinstance(monitors, list):
+        for m in monitors:
+            if not m.get("disabled", False):
+                if not m.get("dpmsStatus", True):
+                    dpms_active = False
+                ws = m.get("activeWorkspace", {})
+                if isinstance(ws, dict) and "id" in ws:
+                    active_ws_ids.add(ws["id"])
+
+    clients = query_hyprland_socket("j/clients")
+    if clients is None:
+        try:
+            client_out = subprocess.check_output(["hyprctl", "clients", "-j"], text=True, timeout=1)
+            clients = json.loads(client_out)
+        except Exception:
+            clients = []
+
+    if isinstance(clients, list):
+        for c in clients:
+            ws = c.get("workspace", {})
+            if isinstance(ws, dict) and ws.get("id") in active_ws_ids:
+                if c.get("fullscreen") == 2 or c.get("fullscreenClient") == 2:
+                    fullscreen_active = True
+                    break
 
     res_lock = subprocess.run(["pgrep", "-x", "hyprlock"], stdout=subprocess.DEVNULL)
     lock_active = (res_lock.returncode == 0)
 
-    dpms_active = True
-    try:
-        mon_out = subprocess.check_output(["hyprctl", "monitors", "-j"], text=True, timeout=1)
-        monitors = json.loads(mon_out)
-        for m in monitors:
-            if not m.get("disabled", False) and not m.get("dpmsStatus", True):
-                dpms_active = False
-                break
-    except Exception:
-        pass
-
     bat_policy = get_battery_policy()
     on_battery = is_on_battery()
+    power_profile = get_power_profile()
+    power_saver_active = ("saver" in power_profile or "save" in power_profile)
 
     gpu_stats = {}
     try:
@@ -1669,7 +2108,9 @@ def get_power_status():
         },
         "power_policy": {
             "battery_policy": bat_policy,
-            "on_battery": on_battery
+            "on_battery": on_battery,
+            "power_profile": power_profile,
+            "power_saver_active": power_saver_active
         },
         "environment": {
             "fullscreen_active": fullscreen_active,
@@ -1768,6 +2209,7 @@ def main():
         monitor = "all"
         fps = 10
         silent = True
+        playback_mode = None
 
         i = 3
         while i < len(sys.argv):
@@ -1775,22 +2217,38 @@ def main():
                 monitor = sys.argv[i+1]
                 i += 2
             elif sys.argv[i] == "--fps" and i + 1 < len(sys.argv):
-                try:
-                    fps = int(sys.argv[i+1])
-                except ValueError:
-                    fps = 10
+                val = sys.argv[i+1].strip().lower()
+                if val == "static":
+                    playback_mode = "static"
+                else:
+                    try:
+                        fps = int(val)
+                        if playback_mode is None:
+                            playback_mode = "fps"
+                    except ValueError:
+                        fps = 10
                 i += 2
+            elif sys.argv[i] in ["--playback-mode", "--mode"] and i + 1 < len(sys.argv):
+                playback_mode = sys.argv[i+1].strip().lower()
+                i += 2
+            elif sys.argv[i] == "--static":
+                playback_mode = "static"
+                i += 1
             elif sys.argv[i] == "--no-silent":
                 silent = False
                 i += 1
             else:
                 i += 1
 
-        res = start_wallpaper(wp_target, monitor=monitor, fps=fps, is_preview=(cmd == "preview"), silent=silent)
+        res = start_wallpaper(wp_target, monitor=monitor, fps=fps, is_preview=(cmd == "preview"), silent=silent, playback_mode=playback_mode)
         print(json.dumps(res, indent=2))
 
     elif cmd in ["stop", "stop-preview"]:
         res = stop_wallpaper()
+        print(json.dumps(res, indent=2))
+
+    elif cmd in ["static", "set-static"]:
+        res = set_static()
         print(json.dumps(res, indent=2))
 
     elif cmd == "pause":
@@ -1805,11 +2263,12 @@ def main():
     elif cmd == "resume":
         reason = "manual"
         force = ("--force" in sys.argv)
+        user = ("--user" in sys.argv or "--force-user" in sys.argv)
         if len(sys.argv) >= 4 and sys.argv[2] == "--reason":
             reason = sys.argv[3]
         elif len(sys.argv) >= 3 and not sys.argv[2].startswith("--"):
             reason = sys.argv[2]
-        res = resume_wallpaper(reason=reason, force=force)
+        res = resume_wallpaper(reason=reason, force=force, user=user)
         print(json.dumps(res, indent=2))
 
     elif cmd == "battery-policy":
@@ -1857,7 +2316,8 @@ def main():
         if len(sys.argv) < 3:
             print(json.dumps({"success": False, "error": "Missing wallpaper ID"}))
             sys.exit(1)
-        res = apply_theme_from_wallpaper(sys.argv[2])
+        is_startup = ("--startup" in sys.argv)
+        res = apply_theme_from_wallpaper(sys.argv[2], is_startup=is_startup)
         print(json.dumps(res, indent=2))
 
     else:

@@ -179,10 +179,12 @@ PanelWindow {
     // --- REUSABLE DESIGN COMPONENTS ---
     component ML4WMenuItemButton: Button {
         id: control
+        property bool loading: false
+        property string iconTxt: ""
         hoverEnabled: true
         MouseArea {
             anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
+            cursorShape: control.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
             acceptedButtons: Qt.NoButton
         }
         background: Rectangle {
@@ -190,18 +192,53 @@ PanelWindow {
             border.color: Theme.primary
             border.width: 1
             radius: 6
+            opacity: control.enabled ? 1.0 : 0.7
         }
-        contentItem: Text {
-            text: control.text
-            font.family: Theme.fontFamily
-            font.pixelSize: 12
-            font.bold: true
-            color: control.down ? Theme.background : (control.hovered ? Theme.on_primary_container : Theme.primary)
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            padding: 4
-            leftPadding: 8
-            rightPadding: 8
+        contentItem: RowLayout {
+            spacing: 4
+            Item {
+                visible: control.loading
+                implicitWidth: visible ? 12 : 0
+                implicitHeight: 12
+                Layout.alignment: Qt.AlignVCenter
+                Text {
+                    id: btnSpinnerText
+                    anchors.centerIn: parent
+                    text: "󰑐"
+                    font.family: "monospace"
+                    font.pixelSize: 11
+                    color: control.down ? Theme.background : (control.hovered ? Theme.on_primary_container : Theme.primary)
+                    transformOrigin: Item.Center
+
+                    NumberAnimation on rotation {
+                        running: control.loading
+                        from: 0
+                        to: 360
+                        duration: 1000
+                        loops: Animation.Infinite
+                    }
+                }
+                Connections {
+                    target: control
+                    function onLoadingChanged() {
+                        if (!control.loading) {
+                            btnSpinnerText.rotation = 0
+                        }
+                    }
+                }
+            }
+            Text {
+                text: control.text
+                font.family: Theme.fontFamily
+                font.pixelSize: 12
+                font.bold: true
+                color: control.down ? Theme.background : (control.hovered ? Theme.on_primary_container : Theme.primary)
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                padding: 4
+                leftPadding: control.loading ? 2 : 8
+                rightPadding: 8
+            }
         }
     }
 
@@ -604,7 +641,7 @@ PanelWindow {
                                         }
 
                                         Text {
-                                            text: "Connected & Active"
+                                            text: (wifiDisconnectBtn.isDisconnecting) ? "Disconnecting..." : "Connected & Active"
                                             color: Theme.primary
                                             font.family: Theme.fontFamily
                                             font.pixelSize: 11
@@ -618,9 +655,29 @@ PanelWindow {
                                     }
 
                                     ML4WMenuItemButton {
-                                        text: "Disconnect"
+                                        id: wifiDisconnectBtn
+                                        property bool pendingDisconnect: false
+                                        readonly property bool isDisconnecting: Boolean(root.connectedWifi && (root.connectedWifi.state === ConnectionState.Disconnecting || pendingDisconnect))
+                                        loading: isDisconnecting
+                                        enabled: !isDisconnecting
+                                        text: isDisconnecting ? "Disconnecting..." : "Disconnect"
                                         onClicked: {
-                                            if (root.connectedWifi) root.connectedWifi.disconnect()
+                                            if (isDisconnecting) return
+                                            if (root.connectedWifi) {
+                                                pendingDisconnect = true
+                                                root.connectedWifi.disconnect()
+                                            }
+                                        }
+                                        Connections {
+                                            target: root.connectedWifi ? root.connectedWifi : null
+                                            function onConnectedChanged() {
+                                                wifiDisconnectBtn.pendingDisconnect = false
+                                            }
+                                            function onStateChanged() {
+                                                if (root.connectedWifi && root.connectedWifi.state !== ConnectionState.Disconnecting) {
+                                                    wifiDisconnectBtn.pendingDisconnect = false
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -645,12 +702,15 @@ PanelWindow {
                             Item { Layout.fillWidth: true }
 
                             ActionIcon {
+                                id: wifiScanBtn
                                 iconTxt: "󰑐"
                                 animating: Boolean(root.wifiDevice && root.wifiDevice.scannerEnabled)
+                                enabled: Boolean(root.wifiDevice && !root.wifiDevice.scannerEnabled)
+                                opacity: enabled ? 1.0 : 0.6
                                 ToolTip.visible: hovered
                                 ToolTip.text: (root.wifiDevice && root.wifiDevice.scannerEnabled) ? "Scanning Networks..." : "Scan Networks"
                                 onClicked: {
-                                    if (root.wifiDevice) {
+                                    if (root.wifiDevice && !root.wifiDevice.scannerEnabled) {
                                         root.wifiDevice.scannerEnabled = true
                                     }
                                 }
@@ -748,10 +808,28 @@ PanelWindow {
                             delegate: Rectangle {
                                 id: wifiRow
                                 property var net: modelData
+                                property bool pendingConnect: false
+                                readonly property bool isConnecting: Boolean(net && (net.state === ConnectionState.Connecting || net.stateChanging || pendingConnect))
+
+                                Connections {
+                                    target: net ? net : null
+                                    function onConnectedChanged() {
+                                        wifiRow.pendingConnect = false
+                                    }
+                                    function onStateChanged() {
+                                        if (net && net.state !== ConnectionState.Connecting) {
+                                            wifiRow.pendingConnect = false
+                                        }
+                                    }
+                                    function onConnectionFailed() {
+                                        wifiRow.pendingConnect = false
+                                    }
+                                }
+
                                 width: wifiList.width
                                 implicitHeight: 40
                                 radius: 6
-                                color: rowMouse.containsMouse ? (Theme.surface_container ? Theme.surface_container : Theme.primary_container) : "transparent"
+                                color: (rowMouse.containsMouse && !isConnecting) ? (Theme.surface_container ? Theme.surface_container : Theme.primary_container) : "transparent"
 
                                 visible: Boolean(net && net !== root.connectedWifi && net.name)
                                 height: visible ? implicitHeight : 0
@@ -771,13 +849,28 @@ PanelWindow {
                                         opacity: 0.7
                                     }
 
-                                    Text {
-                                        text: net ? (net.name || "") : ""
-                                        color: Theme.primary
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: 13
+                                    ColumnLayout {
                                         Layout.fillWidth: true
-                                        elide: Text.ElideRight
+                                        spacing: 1
+
+                                        Text {
+                                            text: net ? (net.name || "") : ""
+                                            color: Theme.primary
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: 13
+                                            Layout.fillWidth: true
+                                            elide: Text.ElideRight
+                                        }
+
+                                        Text {
+                                            visible: wifiRow.isConnecting
+                                            text: "Connecting..."
+                                            color: Theme.primary
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: 10
+                                            font.bold: true
+                                            opacity: 0.85
+                                        }
                                     }
 
                                     SignalBars {
@@ -788,7 +881,7 @@ PanelWindow {
                                         id: rowSpinnerItem
                                         implicitWidth: 16
                                         implicitHeight: 16
-                                        visible: Boolean(net && (net.stateChanging || (net.state !== undefined && net.state === ConnectionState.Connecting)))
+                                        visible: wifiRow.isConnecting
 
                                         Text {
                                             id: rowSpinnerText
@@ -822,11 +915,13 @@ PanelWindow {
                                 MouseArea {
                                     id: rowMouse
                                     anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
+                                    hoverEnabled: !wifiRow.isConnecting
+                                    enabled: !wifiRow.isConnecting
+                                    cursorShape: wifiRow.isConnecting ? Qt.ArrowCursor : Qt.PointingHandCursor
                                     onClicked: {
-                                        if (!net) return
+                                        if (!net || wifiRow.isConnecting) return
                                         if (net.known || net.security === 10) {
+                                            wifiRow.pendingConnect = true
                                             net.connect()
                                         } else {
                                             root.passwordNetwork = net
@@ -938,6 +1033,27 @@ PanelWindow {
                             delegate: Rectangle {
                                 id: btCard
                                 property var dev: modelData
+                                property int pendingState: -1 // -1: none, 3: connecting, 2: disconnecting
+
+                                readonly property bool isConnecting: Boolean(dev && (dev.state === BluetoothDeviceState.Connecting || pendingState === BluetoothDeviceState.Connecting))
+                                readonly property bool isDisconnecting: Boolean(dev && (dev.state === BluetoothDeviceState.Disconnecting || pendingState === BluetoothDeviceState.Disconnecting))
+                                readonly property bool isBusy: isConnecting || isDisconnecting
+
+                                Connections {
+                                    target: dev ? dev : null
+                                    function onStateChanged() {
+                                        if (btCard.pendingState === BluetoothDeviceState.Connecting && dev.state !== BluetoothDeviceState.Connecting) {
+                                            btCard.pendingState = -1
+                                        }
+                                        if (btCard.pendingState === BluetoothDeviceState.Disconnecting && dev.state !== BluetoothDeviceState.Disconnecting) {
+                                            btCard.pendingState = -1
+                                        }
+                                    }
+                                    function onConnectedChanged() {
+                                        btCard.pendingState = -1
+                                    }
+                                }
+
                                 width: btList.width
                                 implicitHeight: 46
                                 radius: 8
@@ -976,16 +1092,17 @@ PanelWindow {
                                         RowLayout {
                                             spacing: 6
                                             Text {
-                                                text: dev.connected ? "Connected" : (dev.paired ? "Paired" : "Discovered")
-                                                color: dev.connected ? Theme.primary : Theme.on_background
+                                                text: btCard.isConnecting ? "Connecting..." : (btCard.isDisconnecting ? "Disconnecting..." : (dev.connected ? "Connected" : (dev.paired ? "Paired" : "Discovered")))
+                                                color: (btCard.isConnecting || btCard.isDisconnecting || dev.connected) ? Theme.primary : Theme.on_background
                                                 font.family: Theme.fontFamily
                                                 font.pixelSize: 11
-                                                opacity: 0.75
+                                                font.bold: (btCard.isConnecting || btCard.isDisconnecting)
+                                                opacity: (btCard.isConnecting || btCard.isDisconnecting) ? 1.0 : 0.75
                                             }
 
                                             // Battery Badge
                                             RowLayout {
-                                                visible: dev.batteryAvailable
+                                                visible: dev.batteryAvailable && !btCard.isBusy
                                                 spacing: 2
                                                 Text { text: "󰁹"; color: Theme.primary; font.family: "monospace"; font.pixelSize: 11 }
                                                 Text {
@@ -1001,11 +1118,16 @@ PanelWindow {
 
                                     // Connect / Disconnect Action Button
                                     ML4WMenuItemButton {
-                                        text: dev.connected ? "Disconnect" : "Connect"
+                                        loading: btCard.isBusy
+                                        enabled: !btCard.isBusy
+                                        text: btCard.isConnecting ? "Connecting..." : (btCard.isDisconnecting ? "Disconnecting..." : (dev.connected ? "Disconnect" : "Connect"))
                                         onClicked: {
+                                            if (btCard.isBusy) return
                                             if (dev.connected) {
+                                                btCard.pendingState = BluetoothDeviceState.Disconnecting
                                                 dev.disconnect()
                                             } else {
+                                                btCard.pendingState = BluetoothDeviceState.Connecting
                                                 dev.connect()
                                             }
                                         }

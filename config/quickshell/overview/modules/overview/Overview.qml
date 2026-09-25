@@ -28,7 +28,7 @@ Scope {
 
             WlrLayershell.namespace: blurEnabled ? "quickshell:overview-blur" : "quickshell:overview"
             WlrLayershell.layer: WlrLayer.Overlay
-            WlrLayershell.keyboardFocus: GlobalStates.overviewOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+            WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
             color: "transparent"
 
             anchors {

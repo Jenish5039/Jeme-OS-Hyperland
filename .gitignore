@@ -9,6 +9,9 @@
 *~
 *.swp
 *.swo
+*.failed-*
+*.pre-rollback-*
+removed-backup-*
 
 # Python bytecode & cache
 __pycache__/

@@ -1,1 +1,9 @@
-{}
+{
+  "id": "3800356808",
+  "title": "Warmth Valley Misty | northway.",
+  "type": "scene",
+  "monitor": "all",
+  "fps": 10,
+  "playback_mode": "fps",
+  "silent": true
+}

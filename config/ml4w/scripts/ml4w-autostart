@@ -79,6 +79,7 @@ fi
 
 if [ "$WALLPAPER_MODE" = "wallpaper-engine" ]; then
     info "Active wallpaper mode: Wallpaper Engine"
+    pkill -x awww-daemon >/dev/null 2>&1 || true
 
     if [ "$WALLPAPER_THEMING" = true ]; then
         SAVED_CFG="$HOME/.config/ml4w/settings/wallpaper-engine-config.json"
