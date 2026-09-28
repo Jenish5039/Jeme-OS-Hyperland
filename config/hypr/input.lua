@@ -12,6 +12,10 @@ hl.config({
 
         follow_mouse = 1,
 
+        repeat_rate  = 40,
+        repeat_delay = 250,
+        numlock_by_default = true,
+
         sensitivity  = 0.0,
         accel_profile = "flat",
         force_no_accel = true,

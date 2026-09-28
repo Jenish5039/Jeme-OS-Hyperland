@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# Jeme OS — Non-Waking Display Ownership Detector
+# Determines whether NVIDIA drives the primary display (Direct MUX / Primary VGA)
+# or acts as a secondary offload GPU in an Intel/AMD hybrid laptop.
+# Inspects sysfs boot_vga without waking runtime-suspended GPUs.
+# ==============================================================================
+set -euo pipefail
+
+pci_devices_path="${JEME_PCI_DEVICES_PATH:-/sys/bus/pci/devices}"
+shopt -s nullglob
+
+nvidia_boot=0
+other_boot=0
+
+for dev in "$pci_devices_path"/*; do
+    [[ -f "$dev/class" ]] || continue
+    class=$(< "$dev/class")
+    [[ "$class" == 0x03* ]] || continue
+
+    boot_vga=0
+    if [[ -f "$dev/boot_vga" ]]; then
+        boot_vga=$(< "$dev/boot_vga")
+    fi
+
+    vendor=$(< "$dev/vendor")
+    if [[ "$vendor" == "0x10de" ]]; then
+        (( boot_vga == 1 )) && nvidia_boot=1
+    else
+        (( boot_vga == 1 )) && other_boot=1
+    fi
+done
+
+# If an integrated/other GPU owns the boot display and NVIDIA does not, exit 1 (hybrid offload)
+if (( other_boot == 1 && nvidia_boot == 0 )); then
+    exit 1
+else
+    # Direct MUX, dGPU-only, or no other device claimed boot_vga
+    exit 0
+fi

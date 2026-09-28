@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# Jeme OS — Non-Waking NVIDIA GSP Firmware Detector
+# Implements strict separation between "GSP Capable" hardware and "GSP Currently Enabled"
+# runtime state, adhering to Jeme OS Safety Rules.
+# ==============================================================================
+set -euo pipefail
+
+pci_devices_path="${JEME_PCI_DEVICES_PATH:-/sys/bus/pci/devices}"
+shopt -s nullglob
+
+is_gsp_capable=0
+gsp_device_id=""
+
+for dev in "$pci_devices_path"/*; do
+    [[ -f "$dev/vendor" && -f "$dev/class" && -f "$dev/device" ]] || continue
+    vendor=$(< "$dev/vendor")
+    [[ "$vendor" == "0x10de" ]] || continue
+    class=$(< "$dev/class")
+    [[ "$class" == 0x03* ]] || continue
+
+    dev_id=$(< "$dev/device")
+    # Turing and newer architecture begins at PCI device ID 0x1e00
+    if (( dev_id >= 0x1e00 )); then
+        is_gsp_capable=1
+        gsp_device_id="$dev_id"
+        break
+    fi
+done
+
+# Read driver parameters from sysfs if nvidia module is loaded
+mod_param_dir="/sys/module/nvidia/parameters"
+nvreg_fw="N/A"
+rm_fw_active="N/A"
+is_gsp_active=0
+
+if [[ -d "$mod_param_dir" ]]; then
+    [[ -f "$mod_param_dir/NVreg_EnableGpuFirmware" ]] && nvreg_fw=$(< "$mod_param_dir/NVreg_EnableGpuFirmware")
+    [[ -f "$mod_param_dir/rm_firmware_active" ]] && rm_fw_active=$(< "$mod_param_dir/rm_firmware_active")
+
+    # GSP is actively running if rm_firmware_active indicates GSP or firmware is explicitly enabled
+    if [[ "$rm_fw_active" =~ ^[1-9] ]] || [[ "$nvreg_fw" == "1" ]]; then
+        is_gsp_active=1
+    fi
+fi
+
+cmd="${1:-capable}"
+
+case "$cmd" in
+    capable|--capable)
+        (( is_gsp_capable == 1 )) && exit 0 || exit 1
+        ;;
+    active|--active|enabled|--enabled)
+        (( is_gsp_capable == 1 && is_gsp_active == 1 )) && exit 0 || exit 1
+        ;;
+    info|--info|status|--status)
+        echo "GSP Capable Hardware  : $( (( is_gsp_capable == 1 )) && echo "YES ($gsp_device_id >= 0x1e00)" || echo "NO" )"
+        echo "GSP Currently Active  : $( (( is_gsp_active == 1 )) && echo "YES" || echo "NO" )"
+        echo "NVreg_EnableGpuFirmware: $nvreg_fw"
+        echo "rm_firmware_active     : $rm_fw_active"
+        ;;
+    *)
+        echo "Usage: jeme-hw-nvidia-gsp [--capable|--enabled|--status]" >&2
+        exit 2
+        ;;
+esac

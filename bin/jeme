@@ -34,6 +34,7 @@ Available Commands:
   restore       Restore configurations from a previous backup directory
   detect        Probe hardware (GPU, monitors) and generate machine settings
   doctor        Run diagnostics and verify desktop stack health
+  nvidia        Inspect NVIDIA GPU status (jeme nvidia doctor)
   theme         Switch wallpaper and re-generate dynamic Material 3 colors
   info          Display system, compositor, and rice version details
   help          Show this help message
@@ -68,6 +69,25 @@ case "$cmd" in
         ;;
     doctor)
         "${REPO_DIR}/scripts/doctor.sh" "$@"
+        ;;
+    nvidia)
+        sub="${1:-doctor}"
+        shift || true
+        case "$sub" in
+            doctor)
+                "${REPO_DIR}/scripts/nvidia-doctor.sh" "$@"
+                ;;
+            *)
+                echo "Usage: jeme nvidia doctor"
+                exit 1
+                ;;
+        esac
+        ;;
+    nvidia-doctor)
+        "${REPO_DIR}/scripts/nvidia-doctor.sh" "$@"
+        ;;
+    performance)
+        "${REPO_DIR}/scripts/performance.sh" "$@"
         ;;
     theme)
         if [[ $# -eq 0 ]]; then

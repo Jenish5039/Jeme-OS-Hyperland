@@ -2,15 +2,13 @@
 
 -- Settings
 hl.config({
-    dwindle = {
-        preserve_split = false,
-    },
-    general = {
-        allow_tearing = false,
+    gestures = {
+        workspace_swipe_distance = 100,
+        workspace_swipe_min_speed_to_force = 33,
     },
     input = {
         accel_profile = "flat",
-        sensitivity = 0.0,
+        sensitivity = -0.7,
     },
     master = {
         orientation = "right",
@@ -18,7 +16,7 @@ hl.config({
     misc = {
         key_press_enables_dpms = true,
         mouse_move_enables_dpms = true,
-        vrr = 1,
+        vrr = 0,
     },
 })
 
@@ -28,6 +26,6 @@ hl.monitor({
     disabled = false,
     mode = "1920x1080@144.00Hz",
     position = "0x0",
-    scale = 0.83,
+    scale = 1,
     cm = "srgb",
 })

@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# Jeme OS — Non-Waking NVIDIA GPU Detector
+# Inspects cached sysfs PCI attributes directly.
+# Never calls lspci or nvidia-smi, ensuring runtime-suspended GPUs are not woken.
+# ==============================================================================
+set -euo pipefail
+
+pci_devices_path="${JEME_PCI_DEVICES_PATH:-/sys/bus/pci/devices}"
+shopt -s nullglob
+
+for dev in "$pci_devices_path"/*; do
+    [[ -f "$dev/vendor" && -f "$dev/class" ]] || continue
+    vendor=$(< "$dev/vendor")
+    [[ "$vendor" == "0x10de" ]] || continue
+    class=$(< "$dev/class")
+    [[ "$class" == 0x03* ]] && exit 0
+done
+
+exit 1

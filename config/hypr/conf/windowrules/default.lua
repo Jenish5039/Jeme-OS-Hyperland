@@ -39,3 +39,21 @@ hl.window_rule({
     float = true,
     center = true,
 })
+
+-- Steam: Inhibit idle and hyprlock when a game is running in fullscreen
+hl.window_rule({
+    name = "steam-idle-inhibit-fullscreen",
+    match = {
+        class = [=[^([Ss]team|steam_app_.*)$]=],
+    },
+    idle_inhibit = "fullscreen",
+})
+
+-- UI Convenience: Route Chromium/Brave/Firefox floating screen-sharing indicator pills to special silent workspace
+hl.window_rule({
+    name = "screen-sharing-indicator-silent",
+    match = {
+        title = [=[.*is sharing (your screen|a window)\..*]=],
+    },
+    workspace = "special silent",
+})
