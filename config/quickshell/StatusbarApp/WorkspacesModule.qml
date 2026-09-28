@@ -3,7 +3,7 @@ import QtQuick
 import QtQuick.Layouts
 import qs.CustomTheme
 
-// Omarchy-inspired dynamic morphing workspace switcher for Jeme OS.
+// Workspace switcher for Jeme OS.
 // Preserves Hyprland Lua dispatching, dynamic workspace detection, and keyboard navigation.
 RowLayout {
     id: wsRoot
@@ -66,13 +66,12 @@ RowLayout {
                     Hyprland.dispatch("workspace " + ws.modelData)
             }
 
-            // Omarchy-style morphing geometry: expands into a pill on active focus
-            implicitWidth: ws.isActive ? 42 : (wsMouse.containsMouse ? 28 : 26)
+            implicitWidth: ws.isActive ? 32 : (wsMouse.containsMouse ? 28 : 26)
             implicitHeight: 26
             radius: 13
 
             Behavior on implicitWidth {
-                NumberAnimation { duration: 280; easing.type: Easing.OutQuint }
+                NumberAnimation { duration: 250; easing.type: Easing.OutQuint }
             }
 
             // Visual hierarchy: Active (1.0) > Occupied (0.90) > Hover (0.75) > Inactive (0.45)
@@ -116,37 +115,17 @@ RowLayout {
                 }
             }
 
-            // Morphing indicator content: Dot + number when active, crisp number otherwise
-            RowLayout {
+            // Clean centered workspace number (no selection dot)
+            Text {
                 anchors.centerIn: parent
-                spacing: 4
+                text: ws.modelData
+                color: ws.isActive ? Theme.background : (ws.occupied ? Theme.primary : Theme.on_surface_variant)
+                font.family: Theme.fontFamily
+                font.pixelSize: 13
+                font.bold: true
 
-                // Active dot indicator
-                Rectangle {
-                    visible: ws.isActive
-                    width: 5
-                    height: 5
-                    radius: 2.5
-                    color: Theme.background
-                    Layout.alignment: Qt.AlignVCenter
-
-                    opacity: ws.isActive ? 1 : 0
-                    Behavior on opacity {
-                        NumberAnimation { duration: 200 }
-                    }
-                }
-
-                Text {
-                    Layout.alignment: Qt.AlignVCenter
-                    text: ws.modelData
-                    color: ws.isActive ? Theme.background : (ws.occupied ? Theme.primary : Theme.on_surface_variant)
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 13
-                    font.bold: true
-
-                    Behavior on color {
-                        ColorAnimation { duration: 300; easing.type: Easing.OutQuint }
-                    }
+                Behavior on color {
+                    ColorAnimation { duration: 300; easing.type: Easing.OutQuint }
                 }
             }
 
