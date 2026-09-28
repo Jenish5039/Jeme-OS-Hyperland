@@ -56,9 +56,9 @@ Rectangle {
             sink.audio.muted = !sink.audio.muted
     }
 
-    // Left click / keyboard Return: open the volume control GUI.
+    // Left click / keyboard Return: toggle the native Quickshell audio popup.
     function activate(): void {
-        Quickshell.execDetached(["pwvucontrol"])
+        Quickshell.execDetached(["qs", "ipc", "call", "audio", "toggle"])
     }
 
     readonly property bool active: mouseArea.containsMouse || volume.focused
