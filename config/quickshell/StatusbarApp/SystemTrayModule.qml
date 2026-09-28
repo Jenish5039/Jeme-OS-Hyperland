@@ -2,66 +2,73 @@ import Quickshell
 import Quickshell.Services.SystemTray
 import QtQuick
 import QtQuick.Layouts
+import qs.CustomTheme
 
-// System tray (StatusNotifierItem hosts).
+// Omarchy-styled System tray (StatusNotifierItem hosts) for Jeme OS.
+// Provides tactile capsule slots for each indicator icon with smooth hover and click scaling.
 RowLayout {
     id: tray
-    spacing: 10
+    spacing: 6
 
-    // Collapse the slot when there are no tray items, so the right Repeater
-    // hides this Loader and the RowLayout doesn't reserve spacing around an
-    // empty, zero-width module (which otherwise leaves a doubled gap next to
-    // its neighbours).
     readonly property bool collapsed: SystemTray.items.values.length === 0
-
-    // True while any tray context menu is open. The bar pins itself expanded
-    // while this is set: the tray lives in the right area, which is only
-    // visible/enabled when the pill is expanded, so without this the popup's
-    // anchor item would vanish (pointer leaves the bar -> hover lost ->
-    // collapse) and the menu would be dismissed the instant it opened.
     property int openMenuCount: 0
     readonly property bool menuOpen: openMenuCount > 0
 
     Repeater {
         model: SystemTray.items
 
-        delegate: MouseArea {
-                id: trayItem
-                required property var modelData
+        delegate: Rectangle {
+            id: traySlot
+            required property var modelData
 
-                readonly property bool isIBus:
+            readonly property bool isIBus:
                 modelData.title.toLowerCase().includes("ibus") ||
                 modelData.tooltipTitle.toLowerCase().includes("ibus") ||
                 modelData.tooltipDescription.toLowerCase().includes("ibus")
 
-                readonly property bool isWifi: {
-                    const id = (trayItem.modelData.id || "").toLowerCase()
-                    const title = (trayItem.modelData.title || "").toLowerCase()
-                    const tt = (trayItem.modelData.tooltipTitle || "").toLowerCase()
-                    return id.includes("nm_applet") || id.includes("nm-applet") ||
-                           title.includes("nm-applet") || title.includes("nm_applet") ||
-                           tt.includes("nm-applet") || tt.includes("nm_applet")
-                }
+            readonly property bool isWifi: {
+                const id = (traySlot.modelData.id || "").toLowerCase()
+                const title = (traySlot.modelData.title || "").toLowerCase()
+                const tt = (traySlot.modelData.tooltipTitle || "").toLowerCase()
+                return id.includes("nm_applet") || id.includes("nm-applet") ||
+                       title.includes("nm-applet") || title.includes("nm_applet") ||
+                       tt.includes("nm-applet") || tt.includes("nm_applet")
+            }
 
-                readonly property bool isBluetooth: {
-                    const id = (trayItem.modelData.id || "").toLowerCase()
-                    const title = (trayItem.modelData.title || "").toLowerCase()
-                    const tt = (trayItem.modelData.tooltipTitle || "").toLowerCase()
-                    return id.includes("blueman") || title.includes("blueman") || tt.includes("blueman")
-                }
+            readonly property bool isBluetooth: {
+                const id = (traySlot.modelData.id || "").toLowerCase()
+                const title = (traySlot.modelData.title || "").toLowerCase()
+                const tt = (traySlot.modelData.tooltipTitle || "").toLowerCase()
+                return id.includes("blueman") || title.includes("blueman") || tt.includes("blueman")
+            }
 
-                visible: !isIBus
-                implicitWidth: isIBus ? 0 : 20
-                implicitHeight: isIBus ? 0 : 20
+            visible: !isIBus
+            implicitWidth: isIBus ? 0 : 26
+            implicitHeight: isIBus ? 0 : 26
+            radius: 13
+            Layout.alignment: Qt.AlignVCenter
 
-                Layout.alignment: Qt.AlignVCenter
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                acceptedButtons: Qt.LeftButton | Qt.RightButton
+            readonly property bool hovered: mouseArea.containsMouse
+
+            color: hovered ? Theme.surface_container_highest : "transparent"
+            border.color: hovered ? Theme.outline : "transparent"
+            border.width: hovered ? 1 : 0
+
+            Behavior on color {
+                ColorAnimation { duration: 200; easing.type: Easing.OutQuint }
+            }
+            Behavior on border.color {
+                ColorAnimation { duration: 200; easing.type: Easing.OutQuint }
+            }
+
+            scale: mouseArea.pressed ? 0.92 : (hovered ? 1.05 : 1.0)
+            Behavior on scale {
+                NumberAnimation { duration: 150; easing.type: Easing.OutBack }
+            }
 
             Image {
                 anchors.centerIn: parent
-                source: trayItem.modelData.icon
+                source: traySlot.modelData.icon
                 width: 16
                 height: 16
                 sourceSize.width: 16
@@ -69,28 +76,33 @@ RowLayout {
                 fillMode: Image.PreserveAspectFit
             }
 
-            onClicked: (mouse) => {
-                if (mouse.button === Qt.LeftButton && isWifi) {
-                    Quickshell.execDetached(["qs", "ipc", "call", "connectivity", "toggleWifi"])
-                } else if (mouse.button === Qt.LeftButton && isBluetooth) {
-                    Quickshell.execDetached(["qs", "ipc", "call", "connectivity", "toggleBluetooth"])
-                } else if (mouse.button === Qt.LeftButton && !modelData.onlyMenu) {
-                    modelData.activate()
-                } else if (modelData.hasMenu) {
-                    trayMenu.open()
+            MouseArea {
+                id: mouseArea
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                acceptedButtons: Qt.LeftButton | Qt.RightButton
+
+                onClicked: (mouse) => {
+                    if (mouse.button === Qt.LeftButton && traySlot.isWifi) {
+                        Quickshell.execDetached(["qs", "ipc", "call", "connectivity", "toggleWifi"])
+                    } else if (mouse.button === Qt.LeftButton && traySlot.isBluetooth) {
+                        Quickshell.execDetached(["qs", "ipc", "call", "connectivity", "toggleBluetooth"])
+                    } else if (mouse.button === Qt.LeftButton && !traySlot.modelData.onlyMenu) {
+                        traySlot.modelData.activate()
+                    } else if (traySlot.modelData.hasMenu) {
+                        trayMenu.open()
+                    }
                 }
             }
 
             QsMenuAnchor {
                 id: trayMenu
-                menu: trayItem.modelData.menu
-                anchor.item: trayItem
+                menu: traySlot.modelData.menu
+                anchor.item: traySlot
                 anchor.edges: Edges.Bottom
                 anchor.gravity: Edges.Bottom
 
-                // Keep the bar expanded for as long as the menu is open so the
-                // anchor item (and this popup) survive the pointer leaving the
-                // bar surface.
                 onOpened: tray.openMenuCount++
                 onClosed: tray.openMenuCount--
             }

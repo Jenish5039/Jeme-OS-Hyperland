@@ -15,21 +15,30 @@ Rectangle {
     // Run the button's action (mouse click or keyboard Return).
     function activate(): void { btn.clicked() }
 
-    // Highlighted when hovered with the mouse or selected via the keyboard.
-    readonly property bool active: mouseArea.containsMouse || btn.focused
+    readonly property bool hovered: mouseArea.containsMouse
+    readonly property bool active: hovered || btn.focused
 
     implicitWidth: 28
     implicitHeight: 28
     radius: 14
 
-    // Every button gets the same accent-filled circle on hover/selection.
-    // (colorize only controls whether the icon itself is recolored, so the
-    // ML4W logo keeps its own colors while still matching the others.)
-    color: btn.active ? Theme.primary : "transparent"
+    color: btn.focused ? Theme.primary : (hovered ? Theme.surface_container_highest : "transparent")
+    border.color: btn.focused ? Theme.primary : (hovered ? Theme.outline : "transparent")
+    border.width: active ? 1 : 0
 
-    // Fade the accent circle in on hover/selection and out again on leave.
     Behavior on color {
-        ColorAnimation { duration: 500; easing.type: Easing.OutQuint }
+        ColorAnimation { duration: 200; easing.type: Easing.OutQuint }
+    }
+    Behavior on border.color {
+        ColorAnimation { duration: 200; easing.type: Easing.OutQuint }
+    }
+    Behavior on border.width {
+        NumberAnimation { duration: 200; easing.type: Easing.OutQuint }
+    }
+
+    scale: mouseArea.pressed ? 0.92 : (hovered ? 1.05 : 1.0)
+    Behavior on scale {
+        NumberAnimation { duration: 150; easing.type: Easing.OutBack }
     }
 
     Image {
@@ -43,11 +52,10 @@ Rectangle {
         layer.enabled: btn.colorize
         layer.effect: MultiEffect {
             colorization: 1.0
-            colorizationColor: btn.active ? Theme.background : Theme.primary
+            colorizationColor: btn.focused ? Theme.background : (btn.hovered ? Theme.on_surface : Theme.primary)
 
-            // Recolor the icon in step with the circle fade.
             Behavior on colorizationColor {
-                ColorAnimation { duration: 500; easing.type: Easing.OutQuint }
+                ColorAnimation { duration: 200; easing.type: Easing.OutQuint }
             }
         }
     }

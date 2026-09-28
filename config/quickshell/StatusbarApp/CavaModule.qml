@@ -5,7 +5,7 @@ import QtQuick.Layouts
 import qs.CustomTheme
 
 // Compact, real-time audio spectrum visualizer for the Jeme OS Statusbar.
-// Driven by a persistent CAVA PipeWire raw stream in stereo mode.
+// Driven by a persistent CAVA PipeWire raw stream in stereo mode with Omarchy tactile styling.
 //   • Stereo layout: 8 bars Left | 8 bars Right (bass rises in center)
 //   • Adaptive dynamic scaling: normal music utilizes full 16px height
 //   • Instant reaction: direct property binding (zero smoothing/sliding)
@@ -19,7 +19,8 @@ Rectangle {
     // Keyboard navigation highlight flag (set by StatusbarWindow)
     property bool focused: false
 
-    readonly property bool active: mouseArea.containsMouse || root.focused
+    readonly property bool hovered: mouseArea.containsMouse
+    readonly property bool active: hovered || root.focused
 
     // Active audio detection: auto-collapse when silent so no idle dots show
     property bool hasAudio: false
@@ -33,7 +34,7 @@ Rectangle {
     readonly property real barRadius: 1.25
     readonly property real barSpacing: 2.0
 
-    // Adaptive peak tracking for dynamic range normalization (fast attack, decay floor at 45.0)
+    // Adaptive peak tracking for dynamic range normalization
     property real visualPeak: 50.0
 
     // Raw spectrum values (0-100) from CAVA
@@ -44,17 +45,46 @@ Rectangle {
         Quickshell.execDetached(["qs", "ipc", "call", "audio", "toggle"])
     }
 
-    implicitWidth: collapsed ? 0 : (barsRow.implicitWidth + 12)
+    implicitWidth: collapsed ? 0 : (barsRow.implicitWidth + 16)
     implicitHeight: 28
     radius: 14
     visible: !collapsed
     clip: true
 
-    // Background pill matching BarButton and VolumeModule
-    color: root.active ? Theme.primary : "transparent"
+    color: root.focused ? Theme.primary : (hovered ? Theme.surface_container_highest : "transparent")
+    border.color: root.focused ? Theme.primary : (hovered ? Theme.outline : "transparent")
+    border.width: active ? 1 : 0
 
     Behavior on color {
-        ColorAnimation { duration: 500; easing.type: Easing.OutQuint }
+        ColorAnimation { duration: 250; easing.type: Easing.OutQuint }
+    }
+    Behavior on border.color {
+        ColorAnimation { duration: 250; easing.type: Easing.OutQuint }
+    }
+    Behavior on border.width {
+        NumberAnimation { duration: 250; easing.type: Easing.OutQuint }
+    }
+    Behavior on implicitWidth {
+        NumberAnimation { duration: 200; easing.type: Easing.OutQuint }
+    }
+
+    scale: mouseArea.pressed ? 0.94 : 1.0
+    Behavior on scale {
+        NumberAnimation { duration: 150; easing.type: Easing.OutBack }
+    }
+
+    // Keyboard selection ring
+    Rectangle {
+        anchors.fill: parent
+        anchors.margins: -2
+        radius: parent.radius + 2
+        color: "transparent"
+        border.color: Theme.primary
+        border.width: 1.5
+        opacity: root.focused ? 1 : 0
+        Behavior on opacity {
+            NumberAnimation { duration: 150 }
+        }
     }
 
     // Single persistent CAVA process streaming raw ASCII stereo frames
@@ -91,7 +121,6 @@ Rectangle {
                     if (!root.hasAudio) {
                         root.hasAudio = true
                     }
-                    // Adaptive dynamic-range scaling: instant attack on new peaks, smooth decay with noise-floor protection
                     if (framePeak > root.visualPeak) {
                         root.visualPeak = Math.min(100.0, framePeak)
                     } else {
@@ -100,14 +129,12 @@ Rectangle {
                     root.rawValues = vals
                     silenceTimer.restart()
                 } else if (root.hasAudio) {
-                    // Audio paused: set values to 0 directly
                     root.rawValues = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
                 }
             }
         }
 
         onExited: (exitCode, exitStatus) => {
-            // Self-heal and restart if CAVA exits unexpectedly
             restartTimer.restart()
         }
     }
@@ -124,7 +151,6 @@ Rectangle {
         }
     }
 
-    // Auto-restart timer for crash recovery
     Timer {
         id: restartTimer
         interval: 1500
@@ -155,15 +181,14 @@ Rectangle {
                     anchors.bottom: parent.bottom
                     width: root.barWidth
                     radius: root.barRadius
-                    color: root.active ? Theme.background : Theme.primary
+                    color: root.focused ? Theme.background : (root.hovered ? Theme.on_surface : Theme.primary)
 
-                    // Direct instant update with adaptive dynamic normalization
                     height: (root.rawValues && root.rawValues[index] !== undefined)
                         ? Math.max(root.minBarHeight, Math.min(root.maxBarHeight, (root.rawValues[index] / root.visualPeak) * root.maxBarHeight))
                         : root.minBarHeight
 
                     Behavior on color {
-                        ColorAnimation { duration: 500; easing.type: Easing.OutQuint }
+                        ColorAnimation { duration: 250; easing.type: Easing.OutQuint }
                     }
                 }
             }

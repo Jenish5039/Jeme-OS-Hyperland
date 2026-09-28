@@ -5,37 +5,26 @@ import QtQuick.Effects
 import QtQuick.Layouts
 import qs.CustomTheme
 
-// Shows the default output sink's volume next to a speaker icon.
-//   • left click / Return   → open pwvucontrol
-//   • right click           → mute (volume 0); right click again restores it
-//   • mouse wheel (hovered)  → raise/lower the volume in 5% steps
-//   • Up / Down arrows (keyboard-focused) → raise/lower the volume
-// Volume and mute come from the Pipewire service; PwObjectTracker keeps the
-// sink's audio properties bound while this module is alive.
+// Omarchy-inspired PipeWire volume module for Jeme OS.
+//   • Left click / Return   → Toggle native Quickshell audio popup
+//   • Right click           → Toggle audio mute
+//   • Mouse wheel (hovered) → Raise/lower volume in 5% steps
+//   • Up / Down arrows      → Adjust volume while keyboard-focused
+//   • Dynamic multi-level icon (muted / low / high)
 Rectangle {
     id: volume
 
-    // The system default output sink (speakers/headphones).
     readonly property PwNode sink: Pipewire.defaultAudioSink
-    // The sink's audio binding is only valid once the node is ready and is an
-    // audio node; guard every access against it being null.
     readonly property bool ready: sink !== null && sink.ready && sink.audio !== null
-    // Current volume as a 0.0–1.0 fraction and its rounded percentage.
     readonly property real level: ready ? sink.audio.volume : 0
     readonly property bool muted: ready ? sink.audio.muted : false
     readonly property int percent: muted ? 0 : Math.round(level * 100)
 
-    // How much one wheel notch / arrow press changes the volume.
     readonly property real stepSize: 0.05
-
-    // Set by the keyboard navigation in StatusbarWindow.
     property bool focused: false
 
-    // Keep the sink's audio (volume/muted) properties live and writable.
     PwObjectTracker { objects: sink !== null ? [sink] : [] }
 
-    // Set the volume to an absolute fraction, unmuting first so a scroll/arrow
-    // while muted brings the sound back.
     function setVolume(v: real): void {
         if (!ready)
             return
@@ -43,48 +32,78 @@ Rectangle {
         sink.audio.volume = Math.max(0, Math.min(1, v))
     }
 
-    // Raise (dir > 0) or lower (dir < 0) the volume by one step. Called by the
-    // mouse wheel and by the Up/Down keys when this module is keyboard-focused.
     function step(dir: int): void {
         setVolume(level + dir * stepSize)
     }
 
-    // Right click: toggle mute. Pipewire keeps the volume value while muted, so
-    // un-muting restores exactly the level from before.
     function toggleMute(): void {
         if (ready)
             sink.audio.muted = !sink.audio.muted
     }
 
-    // Left click / keyboard Return: toggle the native Quickshell audio popup.
     function activate(): void {
         Quickshell.execDetached(["qs", "ipc", "call", "audio", "toggle"])
     }
 
-    readonly property bool active: mouseArea.containsMouse || volume.focused
+    readonly property string iconSource: {
+        if (volume.percent <= 0 || volume.muted)
+            return "../shared/icons/volume-muted.svg"
+        if (volume.percent <= 45)
+            return "../shared/icons/volume-low.svg"
+        return "../shared/icons/volume.svg"
+    }
 
-    implicitWidth: row.implicitWidth + 8
+    readonly property bool hovered: mouseArea.containsMouse
+    readonly property bool active: hovered || volume.focused
+
+    implicitWidth: row.implicitWidth + 16
     implicitHeight: 28
     radius: 14
 
-    // Same accent-filled highlight as the other modules on hover/selection.
-    color: active ? Theme.primary : "transparent"
+    color: volume.focused ? Theme.primary : (hovered ? Theme.surface_container_high : "transparent")
+    border.color: volume.focused ? Theme.primary : (hovered ? Theme.outline : "transparent")
+    border.width: active ? 1 : 0
 
-    // Fade the accent circle in/out like BarButton does.
     Behavior on color {
-        ColorAnimation { duration: 500; easing.type: Easing.OutQuint }
+        ColorAnimation { duration: 250; easing.type: Easing.OutQuint }
+    }
+    Behavior on border.color {
+        ColorAnimation { duration: 250; easing.type: Easing.OutQuint }
+    }
+    Behavior on border.width {
+        NumberAnimation { duration: 250; easing.type: Easing.OutQuint }
+    }
+    Behavior on implicitWidth {
+        NumberAnimation { duration: 150; easing.type: Easing.OutQuint }
+    }
+
+    scale: mouseArea.pressed ? 0.94 : 1.0
+    Behavior on scale {
+        NumberAnimation { duration: 150; easing.type: Easing.OutBack }
+    }
+
+    // Keyboard selection ring
+    Rectangle {
+        anchors.fill: parent
+        anchors.margins: -2
+        radius: parent.radius + 2
+        color: "transparent"
+        border.color: Theme.primary
+        border.width: 1.5
+        opacity: volume.focused ? 1 : 0
+        Behavior on opacity {
+            NumberAnimation { duration: 150 }
+        }
     }
 
     RowLayout {
         id: row
         anchors.centerIn: parent
-        spacing: 4
+        spacing: 6
 
         Image {
             Layout.alignment: Qt.AlignVCenter
-            source: volume.percent <= 0
-                ? "../shared/icons/volume-muted.svg"
-                : "../shared/icons/volume.svg"
+            source: volume.iconSource
             sourceSize.width: 16
             sourceSize.height: 16
             width: 16
@@ -93,9 +112,9 @@ Rectangle {
             layer.enabled: true
             layer.effect: MultiEffect {
                 colorization: 1.0
-                colorizationColor: volume.active ? Theme.background : Theme.primary
+                colorizationColor: volume.focused ? Theme.background : (volume.hovered ? Theme.on_surface : Theme.primary)
                 Behavior on colorizationColor {
-                    ColorAnimation { duration: 500; easing.type: Easing.OutQuint }
+                    ColorAnimation { duration: 250; easing.type: Easing.OutQuint }
                 }
             }
         }
@@ -103,12 +122,12 @@ Rectangle {
         Text {
             Layout.alignment: Qt.AlignVCenter
             text: volume.percent + "%"
-            color: volume.active ? Theme.background : Theme.primary
+            color: volume.focused ? Theme.background : (volume.hovered ? Theme.on_surface : Theme.primary)
             font.family: Theme.fontFamily
             font.pixelSize: 13
             font.bold: true
             Behavior on color {
-                ColorAnimation { duration: 500; easing.type: Easing.OutQuint }
+                ColorAnimation { duration: 250; easing.type: Easing.OutQuint }
             }
         }
     }
