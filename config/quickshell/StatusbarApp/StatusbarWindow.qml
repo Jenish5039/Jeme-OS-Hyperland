@@ -548,20 +548,20 @@ PanelWindow {
             }
 
             // Border colors come from the settings file; empty strings fall
-            // back to the dynamic wallpaper theme with crisp Omarchy luminous framing.
+            // back to the dynamic wallpaper theme.
             gradient: Gradient {
                 orientation: Gradient.Vertical
                 GradientStop {
                     position: 0.0
                     color: root.settings.border.colorTop !== ""
                         ? root.settings.border.colorTop
-                        : Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.85)
+                        : Theme.primary
                 }
                 GradientStop {
                     position: 1.0
                     color: root.settings.border.colorBottom !== ""
                         ? root.settings.border.colorBottom
-                        : Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.35)
+                        : Theme.on_primary
                 }
             }
 

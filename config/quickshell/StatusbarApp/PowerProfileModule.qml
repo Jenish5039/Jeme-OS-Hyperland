@@ -6,18 +6,27 @@ import QtQuick.Effects
 import QtQuick.Layouts
 import qs.CustomTheme
 
-// Omarchy-styled Power Profile module for Jeme OS.
-// Shows the active system power profile as an icon and opens a sleek
-// Omarchy-inspired popup card to switch between Power Saver, Balanced, and Performance.
+// Shows the active system power profile as an icon (leaf / gauge / rocket) and
+// opens a small popup menu to switch between power-saver, balanced and
+// performance. Reads and writes through Quickshell's PowerProfiles service,
+// which is backed by power-profiles-daemon; no shell-out is needed. The module
+// is always visible (unlike the battery module) so the profile can be changed
+// both on battery and while plugged in.
 Rectangle {
     id: profileRoot
 
+    // Current profile as reported by power-profiles-daemon.
     readonly property int current: PowerProfiles.profile
+    // Whether the daemon offers a performance profile (some machines don't).
     readonly property bool hasPerformance: PowerProfiles.hasPerformanceProfile
 
+    // Whether the switch popup is open.
     property bool menuOpen: false
+    // Set by the keyboard navigation in StatusbarWindow.
     property bool focused: false
 
+    // The three selectable profiles, in ascending-power order. Performance is
+    // dropped when the daemon does not expose it.
     readonly property var profiles: {
         let list = [
             { "value": PowerProfile.PowerSaver,  "label": "Power Saver",  "icon": "../shared/icons/profile-power-saver.svg" },
@@ -28,6 +37,7 @@ Rectangle {
         return list
     }
 
+    // Icon for the currently active profile, shown in the bar.
     readonly property string iconSource: {
         switch (current) {
         case PowerProfile.PowerSaver:   return "../shared/icons/profile-power-saver.svg"
@@ -36,53 +46,27 @@ Rectangle {
         }
     }
 
+    // Apply a profile and close the menu.
     function setProfile(value: int): void {
         PowerProfiles.profile = value
         profileRoot.menuOpen = false
     }
 
+    // Mouse click / keyboard Return: toggle the switch popup.
     function activate(): void {
         profileRoot.menuOpen = !profileRoot.menuOpen
     }
 
-    readonly property bool hovered: mouseArea.containsMouse
-    readonly property bool active: hovered || profileRoot.focused || profileRoot.menuOpen
+    readonly property bool active: mouseArea.containsMouse || profileRoot.focused || profileRoot.menuOpen
 
     implicitWidth: 28
     implicitHeight: 28
     radius: 14
 
-    color: (profileRoot.focused || profileRoot.menuOpen) ? Theme.primary : (hovered ? Theme.surface_container_highest : "transparent")
-    border.color: (profileRoot.focused || profileRoot.menuOpen) ? Theme.primary : (hovered ? Theme.outline : "transparent")
-    border.width: active ? 1 : 0
-
+    // Same accent-filled circle as BarButton on hover/selection/open.
+    color: active ? Theme.primary : "transparent"
     Behavior on color {
-        ColorAnimation { duration: 250; easing.type: Easing.OutQuint }
-    }
-    Behavior on border.color {
-        ColorAnimation { duration: 250; easing.type: Easing.OutQuint }
-    }
-    Behavior on border.width {
-        NumberAnimation { duration: 250; easing.type: Easing.OutQuint }
-    }
-
-    scale: mouseArea.pressed ? 0.94 : 1.0
-    Behavior on scale {
-        NumberAnimation { duration: 150; easing.type: Easing.OutBack }
-    }
-
-    // Keyboard selection ring
-    Rectangle {
-        anchors.fill: parent
-        anchors.margins: -2
-        radius: parent.radius + 2
-        color: "transparent"
-        border.color: Theme.primary
-        border.width: 1.5
-        opacity: profileRoot.focused ? 1 : 0
-        Behavior on opacity {
-            NumberAnimation { duration: 150 }
-        }
+        ColorAnimation { duration: 500; easing.type: Easing.OutQuint }
     }
 
     Image {
@@ -96,9 +80,9 @@ Rectangle {
         layer.enabled: true
         layer.effect: MultiEffect {
             colorization: 1.0
-            colorizationColor: (profileRoot.focused || profileRoot.menuOpen) ? Theme.background : (profileRoot.hovered ? Theme.on_surface : Theme.primary)
+            colorizationColor: profileRoot.active ? Theme.background : Theme.primary
             Behavior on colorizationColor {
-                ColorAnimation { duration: 250; easing.type: Easing.OutQuint }
+                ColorAnimation { duration: 500; easing.type: Easing.OutQuint }
             }
         }
     }
@@ -112,28 +96,35 @@ Rectangle {
     }
 
     // ==========================================
-    // SWITCH POPUP CARD
+    // SWITCH POPUP
     // ==========================================
+    // Anchored just below the icon. grabFocus lets a click outside dismiss it.
     PopupWindow {
         id: popup
         anchor.item: profileRoot
         anchor.edges: Edges.Bottom
         anchor.gravity: Edges.Bottom
         anchor.margins.top: 8
+        // Center the popup under the icon.
         anchor.rect.x: profileRoot.width / 2 - popup.width / 2
 
         visible: profileRoot.menuOpen
 
+        // Grab input while open so a click anywhere outside the popup dismisses
+        // it — the same primitive the status bar itself uses.
         HyprlandFocusGrab {
             windows: [popup]
             active: profileRoot.menuOpen
             onCleared: profileRoot.menuOpen = false
         }
 
-        implicitWidth: 230
-        implicitHeight: menuColumn.implicitHeight + 20
+        implicitWidth: 220
+        implicitHeight: menuColumn.implicitHeight + 16
         color: "transparent"
 
+        // Take keyboard focus while open so Escape closes the menu (the popup
+        // is opened via keyboard Return as well as by mouse). forceActiveFocus
+        // on show because the popup surface is only created once visible.
         FocusScope {
             id: keyScope
             anchors.fill: parent
@@ -146,56 +137,40 @@ Rectangle {
                 keyScope.forceActiveFocus()
         }
 
-        // Omarchy-style floating popup card with crisp luminous border & shadow
-        RectangularShadow {
-            anchors.fill: cardBg
-            radius: cardBg.radius
-            blur: 16
-            color: Qt.rgba(Theme.shadow.r, Theme.shadow.g, Theme.shadow.b, 0.45)
-        }
-
+        // Card background, matching the sidebar's context menus: flat
+        // background with a thin accent border.
         Rectangle {
-            id: cardBg
             anchors.fill: parent
-            radius: 12
-            color: Theme.surface_container_low
-            border.color: Theme.outline_variant
+            radius: 8
+            color: Theme.background
+            border.color: Theme.primary
             border.width: 1
         }
 
         ColumnLayout {
             id: menuColumn
             anchors.fill: parent
-            anchors.margins: 10
-            spacing: 4
+            anchors.margins: 8
+            spacing: 2
 
             Repeater {
                 model: profileRoot.profiles
                 delegate: Rectangle {
                     required property var modelData
                     readonly property bool selected: modelData.value === profileRoot.current
-                    readonly property bool rowHovered: rowMouse.containsMouse
-
                     Layout.fillWidth: true
-                    implicitHeight: 38
-                    radius: 8
-
-                    color: selected ? Theme.primary : (rowHovered ? Theme.surface_container_highest : "transparent")
-                    border.color: selected ? Theme.primary : (rowHovered ? Theme.outline : "transparent")
-                    border.width: 1
-
+                    implicitHeight: 36
+                    radius: 4
+                    color: rowMouse.containsMouse || selected ? Theme.primary : "transparent"
                     Behavior on color {
-                        ColorAnimation { duration: 200; easing.type: Easing.OutQuint }
-                    }
-                    Behavior on border.color {
                         ColorAnimation { duration: 200; easing.type: Easing.OutQuint }
                     }
 
                     RowLayout {
                         anchors.fill: parent
-                        anchors.leftMargin: 12
-                        anchors.rightMargin: 12
-                        spacing: 10
+                        anchors.leftMargin: 10
+                        anchors.rightMargin: 10
+                        spacing: 8
 
                         Image {
                             Layout.alignment: Qt.AlignVCenter
@@ -208,10 +183,7 @@ Rectangle {
                             layer.enabled: true
                             layer.effect: MultiEffect {
                                 colorization: 1.0
-                                colorizationColor: selected ? Theme.background : (rowHovered ? Theme.on_surface : Theme.primary)
-                                Behavior on colorizationColor {
-                                    ColorAnimation { duration: 200; easing.type: Easing.OutQuint }
-                                }
+                                colorizationColor: (rowMouse.containsMouse || selected) ? Theme.background : Theme.primary
                             }
                         }
 
@@ -219,24 +191,10 @@ Rectangle {
                             Layout.alignment: Qt.AlignVCenter
                             Layout.fillWidth: true
                             text: modelData.label
-                            color: selected ? Theme.background : (rowHovered ? Theme.on_surface : Theme.on_surface_variant)
+                            color: (rowMouse.containsMouse || selected) ? Theme.background : Theme.primary
                             font.family: Theme.fontFamily
-                            font.pixelSize: 13
+                            font.pixelSize: 14
                             font.bold: selected
-
-                            Behavior on color {
-                                ColorAnimation { duration: 200; easing.type: Easing.OutQuint }
-                            }
-                        }
-
-                        // Subtle active checkmark or indicator dot
-                        Rectangle {
-                            visible: selected
-                            Layout.alignment: Qt.AlignVCenter
-                            width: 6
-                            height: 6
-                            radius: 3
-                            color: Theme.background
                         }
                     }
 

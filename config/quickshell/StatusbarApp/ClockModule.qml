@@ -2,122 +2,65 @@ import Quickshell
 import QtQuick
 import qs.CustomTheme
 
-// Omarchy-inspired Clock & Date module for Jeme OS.
-//   • Left click / Return  → Toggle native Quickshell Calendar popup
-//   • Right click          → Cycle through 4 date/time display formats
-//   • Zero-wake design     → Ticks per-minute by default; seconds only when active format demands it
-Rectangle {
+// Time displayed in the center of the bar; click toggles the calendar.
+Item {
     id: clockRoot
 
-    // Preserved for compatibility with parent bindings
+    // Preserved for compatibility with parent bindings.
     property bool expanded: false
-    // Formats supplied from statusbar.json
+    // Qt date/time format for the time, supplied from statusbar.json.
     property string timeFormat: "HH:mm"
+    // Preserved for compatibility with parent bindings.
     property string dateFormat: "ddd, dd MMM"
-    // Set by StatusbarWindow keyboard navigation
+    // Set by the keyboard navigation in StatusbarWindow.
     property bool focused: false
 
-    // Available formats ring
-    readonly property var formats: [
-        clockRoot.timeFormat,
-        clockRoot.dateFormat,
-        "HH:mm:ss",
-        "ddd, HH:mm"
-    ]
-    property int formatIndex: 0
-    readonly property string activeFormat: formats[formatIndex % formats.length]
-    readonly property bool needsSeconds: activeFormat.indexOf("ss") !== -1
-
-    function cycleFormat(): void {
-        formatIndex = (formatIndex + 1) % formats.length
-    }
-
-    // Run primary action (left click or keyboard Return)
+    // Run the module's action (mouse click or keyboard Return).
     function activate(): void {
         Quickshell.execDetached(["qs", "ipc", "call", "calendar", "toggle"])
     }
 
-    readonly property bool hovered: mouseArea.containsMouse
-    readonly property bool active: hovered || clockRoot.focused
+    implicitWidth: timeText.implicitWidth + 24
+    implicitHeight: timeText.implicitHeight
 
-    implicitWidth: timeText.implicitWidth + 20
-    implicitHeight: 28
-    radius: 14
-
-    color: clockRoot.focused ? Theme.primary : (hovered ? Theme.surface_container_high : "transparent")
-    border.color: clockRoot.focused ? Theme.primary : (hovered ? Theme.outline : "transparent")
-    border.width: active ? 1 : 0
-
-    Behavior on color {
-        ColorAnimation { duration: 250; easing.type: Easing.OutQuint }
-    }
-    Behavior on border.color {
-        ColorAnimation { duration: 250; easing.type: Easing.OutQuint }
-    }
-    Behavior on border.width {
-        NumberAnimation { duration: 250; easing.type: Easing.OutQuint }
-    }
-    Behavior on implicitWidth {
-        NumberAnimation { duration: 200; easing.type: Easing.OutQuint }
-    }
-
-    scale: mouseArea.pressed ? 0.94 : 1.0
-    Behavior on scale {
-        NumberAnimation { duration: 150; easing.type: Easing.OutBack }
-    }
-
-    // Dynamic system clock: only ticks per-second when active format has seconds
-    SystemClock {
-        id: clock
-        precision: clockRoot.needsSeconds ? SystemClock.Seconds : SystemClock.Minutes
-    }
-
-    // Highlight ring shown when keyboard-focused
+    // Highlight ring shown when selected via the keyboard. Wraps tightly around the time text.
     Rectangle {
-        anchors.fill: parent
-        anchors.margins: -2
-        radius: parent.radius + 2
+        anchors.fill: timeText
+        anchors.leftMargin: -7
+        anchors.rightMargin: -7
+        anchors.topMargin: -3
+        anchors.bottomMargin: -3
+        radius: 8
         color: "transparent"
         border.color: Theme.primary
-        border.width: 1.5
+        border.width: 1
         opacity: clockRoot.focused ? 1 : 0
         Behavior on opacity {
             NumberAnimation { duration: 150 }
         }
     }
 
+    // Live clock, only ticks once per minute.
+    SystemClock {
+        id: clock
+        precision: SystemClock.Minutes
+    }
+
+    // Click toggles the Calendar app via IPC.
+    MouseArea {
+        anchors.fill: parent
+        cursorShape: Qt.PointingHandCursor
+        onClicked: Quickshell.execDetached(["qs", "ipc", "call", "calendar", "toggle"])
+    }
+
     Text {
         id: timeText
         anchors.centerIn: parent
-        text: {
-            let str = Qt.formatDateTime(clock.date, clockRoot.activeFormat)
-            if (clockRoot.activeFormat === "HH:mm")
-                return str.replace(":", " : ")
-            return str
-        }
-        color: clockRoot.focused ? Theme.background : (hovered ? Theme.on_surface : Theme.primary)
+        text: Qt.formatDateTime(clock.date, clockRoot.timeFormat).replace(":", " : ")
+        color: Theme.primary
         font.family: Theme.fontFamily
-        font.pixelSize: 13
+        font.pixelSize: 14
         font.bold: true
-        font.letterSpacing: 1.1
-
-        Behavior on color {
-            ColorAnimation { duration: 250; easing.type: Easing.OutQuint }
-        }
-    }
-
-    MouseArea {
-        id: mouseArea
-        anchors.fill: parent
-        hoverEnabled: true
-        acceptedButtons: Qt.LeftButton | Qt.RightButton
-        cursorShape: Qt.PointingHandCursor
-        onClicked: mouse => {
-            if (mouse.button === Qt.RightButton) {
-                clockRoot.cycleFormat()
-            } else {
-                clockRoot.activate()
-            }
-        }
+        font.letterSpacing: 1.2
     }
 }

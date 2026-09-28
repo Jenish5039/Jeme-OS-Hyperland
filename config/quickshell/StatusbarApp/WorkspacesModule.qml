@@ -3,16 +3,19 @@ import QtQuick
 import QtQuick.Layouts
 import qs.CustomTheme
 
-// Workspace switcher for Jeme OS.
-// Preserves Hyprland Lua dispatching, dynamic workspace detection, and keyboard navigation.
+// Hyprland workspace switcher.
 RowLayout {
     id: wsRoot
     spacing: 6
 
-    // Minimum number of workspaces to always display, even when empty.
+    // Minimum number of workspaces to always display, even when empty. The list
+    // still grows beyond this to reveal any higher-numbered workspace that
+    // exists (e.g. switching to workspace 6 while this is 5 adds a 6th dot).
     property int minWorkspaces: 5
 
-    // The individual workspace buttons, exposed for StatusbarWindow keyboard navigation.
+    // The individual workspace buttons, exposed so StatusbarWindow can splice
+    // them into its keyboard-navigation list. Rebuilt whenever workspaces are
+    // added or removed.
     property var navButtons: []
 
     function rebuildNavButtons(): void {
@@ -22,7 +25,8 @@ RowLayout {
         wsRoot.navButtons = a
     }
 
-    // Dynamic range of workspace IDs (1..max(minWorkspaces, activeId))
+    // The workspace ids to render: 1..N, where N is at least minWorkspaces and
+    // extends to cover the highest-numbered workspace that currently exists.
     readonly property var workspaceIds: {
         let maxId = Math.max(1, wsRoot.minWorkspaces)
         const list = Hyprland.workspaces.values
@@ -35,6 +39,8 @@ RowLayout {
         return ids
     }
 
+    // The live Hyprland workspace for an id, or null when it is empty (Hyprland
+    // only tracks workspaces that hold windows or are focused).
     function workspaceById(id: int): var {
         const list = Hyprland.workspaces.values
         for (let i = 0; i < list.length; i++)
@@ -52,13 +58,19 @@ RowLayout {
 
         delegate: Rectangle {
             id: ws
-            required property var modelData   // workspace id (int)
+            required property var modelData   // the workspace id (int)
+            // Set by StatusbarWindow's keyboard navigation.
             property bool focused: false
 
+            // Whether this workspace is the currently focused one.
             readonly property bool isActive: Hyprland.focusedWorkspace
                 && Hyprland.focusedWorkspace.id === ws.modelData
+            // Whether the workspace currently holds windows (exists in Hyprland).
             readonly property bool occupied: wsRoot.workspaceById(ws.modelData) !== null
 
+            // Run this workspace's action (mouse click or keyboard Return).
+            // Hyprland with Lua dispatchers ignores the plain "workspace N"
+            // string, so branch on usingLua the same way the overview does.
             function activate(): void {
                 if (Hyprland.usingLua)
                     Hyprland.dispatch("hl.dsp.focus({workspace = '" + ws.modelData + "'})")
@@ -66,42 +78,38 @@ RowLayout {
                     Hyprland.dispatch("workspace " + ws.modelData)
             }
 
-            implicitWidth: 20
-            implicitHeight: 28
-            radius: 6
+            implicitWidth: 26
+            implicitHeight: 26
+            radius: 13
 
-            // Visual hierarchy: Active (1.0) > Occupied (0.90) > Hover (0.75) > Inactive (0.45)
-            opacity: ws.isActive ? 1.0 : (ws.occupied ? 0.90 : (wsMouse.containsMouse ? 0.75 : 0.45))
+            // Empty, unfocused workspaces are dimmed to set them apart from the
+            // ones that hold windows.
+            opacity: (ws.isActive || ws.occupied || wsMouse.containsMouse) ? 1 : 0.45
             Behavior on opacity {
-                NumberAnimation { duration: 250; easing.type: Easing.OutQuint }
+                NumberAnimation { duration: 300; easing.type: Easing.OutQuint }
             }
 
             color: ws.isActive
                 ? Theme.primary
                 : (wsMouse.containsMouse ? Theme.surface_container_high : "transparent")
-            border.color: ws.isActive ? Theme.primary : (ws.occupied ? Theme.outline : Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.4))
+            border.color: Theme.primary
             border.width: ws.isActive ? 0 : 1
 
+            // Crossfade the fill between active / hover / inactive states so the
+            // background of the active circle fades in and the previous one out.
             Behavior on color {
-                ColorAnimation { duration: 300; easing.type: Easing.OutQuint }
+                ColorAnimation { duration: 500; easing.type: Easing.OutQuint }
             }
-            Behavior on border.color {
-                ColorAnimation { duration: 300; easing.type: Easing.OutQuint }
-            }
+            // Fade the outline in/out as the fill takes over on activation.
             Behavior on border.width {
-                NumberAnimation { duration: 300; easing.type: Easing.OutQuint }
+                NumberAnimation { duration: 500; easing.type: Easing.OutQuint }
             }
 
-            scale: wsMouse.pressed ? 0.92 : 1.0
-            Behavior on scale {
-                NumberAnimation { duration: 150; easing.type: Easing.OutBack }
-            }
-
-            // Keyboard-selection ring
+            // Keyboard-selection ring, distinct from the active-workspace fill.
             Rectangle {
                 anchors.fill: parent
                 anchors.margins: -2
-                radius: parent.radius + 2
+                radius: width / 2
                 color: "transparent"
                 border.color: Theme.primary
                 border.width: 1.5
@@ -111,17 +119,17 @@ RowLayout {
                 }
             }
 
-            // Clean centered workspace number (no selection dot)
             Text {
                 anchors.centerIn: parent
                 text: ws.modelData
-                color: ws.isActive ? Theme.background : (ws.occupied ? Theme.primary : Theme.on_surface_variant)
+                color: ws.isActive ? Theme.background : Theme.on_background
                 font.family: Theme.fontFamily
                 font.pixelSize: 13
                 font.bold: true
 
+                // Match the fill crossfade so the label recolors in step.
                 Behavior on color {
-                    ColorAnimation { duration: 300; easing.type: Easing.OutQuint }
+                    ColorAnimation { duration: 500; easing.type: Easing.OutQuint }
                 }
             }
 

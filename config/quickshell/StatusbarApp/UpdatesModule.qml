@@ -5,70 +5,51 @@ import QtQuick.Effects
 import QtQuick.Layouts
 import qs.CustomTheme
 
-// Omarchy-styled system update indicator for Jeme OS.
-// Displays the number of pending package updates next to a package icon.
-// Auto-collapses when 0 updates are pending.
+// Shows the number of pending system updates next to a package icon. The count
+// comes from ml4w-check-system-updates (the same script the Waybar module
+// uses), polled every 30 minutes. The module hides itself completely while no
+// updates are available; clicking it launches the ML4W update routine.
 Rectangle {
     id: updates
 
+    // Number of available updates (0 = nothing pending, module hidden).
     property int count: 0
+    // True when there is nothing to show. The right Repeater reads this to
+    // collapse the layout slot, and rebuildNavItems skips collapsed modules.
+    // It is deliberately independent of the (effective) `visible` property:
+    // binding a Loader's visibility to a child's effective visibility latches
+    // off once the right area collapses while the pill is in collapsed mode.
     readonly property bool collapsed: count <= 0
+    // Set by the keyboard navigation in StatusbarWindow.
     property bool focused: false
 
+    // Run the module's action (mouse click or keyboard Return).
     function activate(): void {
         Quickshell.execDetached(["bash", "-c",
             Quickshell.env("HOME") + "/.config/ml4w/settings/installupdates.sh"])
     }
 
+    // Hidden (and collapsed to zero size) when there is nothing to update.
     visible: !collapsed
 
-    readonly property bool hovered: mouseArea.containsMouse
-    readonly property bool active: hovered || updates.focused
+    readonly property bool active: mouseArea.containsMouse || updates.focused
 
-    implicitWidth: collapsed ? 0 : row.implicitWidth + 16
+    implicitWidth: collapsed ? 0 : row.implicitWidth + 8
     implicitHeight: 28
     radius: 14
 
-    color: updates.focused ? Theme.primary : (hovered ? Theme.surface_container_highest : "transparent")
-    border.color: updates.focused ? Theme.primary : (hovered ? Theme.outline : "transparent")
-    border.width: active ? 1 : 0
+    // Same accent-filled highlight as BarButton on hover/selection.
+    color: active ? Theme.primary : "transparent"
 
+    // Fade the accent circle in/out like BarButton does.
     Behavior on color {
-        ColorAnimation { duration: 250; easing.type: Easing.OutQuint }
-    }
-    Behavior on border.color {
-        ColorAnimation { duration: 250; easing.type: Easing.OutQuint }
-    }
-    Behavior on border.width {
-        NumberAnimation { duration: 250; easing.type: Easing.OutQuint }
-    }
-    Behavior on implicitWidth {
-        NumberAnimation { duration: 150; easing.type: Easing.OutQuint }
-    }
-
-    scale: mouseArea.pressed ? 0.94 : 1.0
-    Behavior on scale {
-        NumberAnimation { duration: 150; easing.type: Easing.OutBack }
-    }
-
-    // Keyboard selection ring
-    Rectangle {
-        anchors.fill: parent
-        anchors.margins: -2
-        radius: parent.radius + 2
-        color: "transparent"
-        border.color: Theme.primary
-        border.width: 1.5
-        opacity: updates.focused ? 1 : 0
-        Behavior on opacity {
-            NumberAnimation { duration: 150 }
-        }
+        ColorAnimation { duration: 500; easing.type: Easing.OutQuint }
     }
 
     RowLayout {
         id: row
         anchors.centerIn: parent
-        spacing: 6
+        spacing: 4
 
         Image {
             Layout.alignment: Qt.AlignVCenter
@@ -81,9 +62,9 @@ Rectangle {
             layer.enabled: true
             layer.effect: MultiEffect {
                 colorization: 1.0
-                colorizationColor: updates.focused ? Theme.background : (updates.hovered ? Theme.on_surface : Theme.primary)
+                colorizationColor: updates.active ? Theme.background : Theme.primary
                 Behavior on colorizationColor {
-                    ColorAnimation { duration: 250; easing.type: Easing.OutQuint }
+                    ColorAnimation { duration: 500; easing.type: Easing.OutQuint }
                 }
             }
         }
@@ -91,12 +72,12 @@ Rectangle {
         Text {
             Layout.alignment: Qt.AlignVCenter
             text: updates.count
-            color: updates.focused ? Theme.background : (updates.hovered ? Theme.on_surface : Theme.primary)
+            color: updates.active ? Theme.background : Theme.primary
             font.family: Theme.fontFamily
             font.pixelSize: 13
             font.bold: true
             Behavior on color {
-                ColorAnimation { duration: 250; easing.type: Easing.OutQuint }
+                ColorAnimation { duration: 500; easing.type: Easing.OutQuint }
             }
         }
     }
@@ -109,6 +90,8 @@ Rectangle {
         onClicked: updates.activate()
     }
 
+    // Parse the script's JSON output ({"text": "69", ...}); an empty line means
+    // zero updates and the script prints nothing.
     function refresh(): void {
         updatesProc.running = false
         updatesProc.running = true
@@ -131,7 +114,7 @@ Rectangle {
         }
     }
 
-    // Initial check deferred by 8 seconds so dnf check-update does not contend with desktop startup
+    // Initial check deferred by 8 seconds so dnf check-update (2.7s) does not contend with desktop startup
     Timer {
         interval: 8000
         running: true
@@ -139,7 +122,7 @@ Rectangle {
         onTriggered: updates.refresh()
     }
 
-    // Re-check on the same 1800s interval as the Waybar module
+    // Re-check on the same 1800s interval as the Waybar module.
     Timer {
         interval: 1800 * 1000
         running: true
@@ -147,6 +130,10 @@ Rectangle {
         onTriggered: updates.refresh()
     }
 
+    // Let external scripts drive the module via `qs ipc call updates ...`.
+    // `reset` clears the count immediately (e.g. right after an update run,
+    // so the module hides itself without waiting for the next poll); `refresh`
+    // re-runs the check script on demand.
     IpcHandler {
         target: "updates"
         function reset(): void { updates.count = 0 }
