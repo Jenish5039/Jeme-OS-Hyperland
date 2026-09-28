@@ -66,13 +66,9 @@ RowLayout {
                     Hyprland.dispatch("workspace " + ws.modelData)
             }
 
-            implicitWidth: ws.isActive ? 32 : (wsMouse.containsMouse ? 28 : 26)
+            implicitWidth: 26
             implicitHeight: 26
             radius: 13
-
-            Behavior on implicitWidth {
-                NumberAnimation { duration: 250; easing.type: Easing.OutQuint }
-            }
 
             // Visual hierarchy: Active (1.0) > Occupied (0.90) > Hover (0.75) > Inactive (0.45)
             opacity: ws.isActive ? 1.0 : (ws.occupied ? 0.90 : (wsMouse.containsMouse ? 0.75 : 0.45))
