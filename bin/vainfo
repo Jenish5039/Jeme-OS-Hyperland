@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+import ctypes
+import os
+import sys
+
+# Ensure driver name default if not specified
+if 'LIBVA_DRIVER_NAME' not in os.environ:
+    os.environ['LIBVA_DRIVER_NAME'] = 'nvidia'
+if 'NVD_BACKEND' not in os.environ:
+    os.environ['NVD_BACKEND'] = 'direct'
+
+try:
+    va = ctypes.CDLL('libva.so.2')
+    va_drm = ctypes.CDLL('libva-drm.so.2')
+except Exception as e:
+    print(f"Error loading libva libraries: {e}", file=sys.stderr)
+    sys.exit(1)
+
+dev_path = '/dev/dri/renderD128'
+for i, arg in enumerate(sys.argv):
+    if arg == '--device' and i + 1 < len(sys.argv):
+        dev_path = sys.argv[i + 1]
+
+try:
+    fd = os.open(dev_path, os.O_RDWR)
+except Exception as e:
+    print(f"Cannot open DRM render device {dev_path}: {e}", file=sys.stderr)
+    sys.exit(1)
+
+vaGetDisplayDRM = va_drm.vaGetDisplayDRM
+vaGetDisplayDRM.argtypes = [ctypes.c_int]
+vaGetDisplayDRM.restype = ctypes.c_void_p
+dpy = vaGetDisplayDRM(fd)
+
+vaInitialize = va.vaInitialize
+vaInitialize.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int)]
+vaInitialize.restype = ctypes.c_int
+
+major = ctypes.c_int()
+minor = ctypes.c_int()
+ret = vaInitialize(dpy, ctypes.byref(major), ctypes.byref(minor))
+if ret != 0:
+    print(f"vaInitialize failed with return code {ret}", file=sys.stderr)
+    sys.exit(1)
+
+vaQueryVendorString = va.vaQueryVendorString
+vaQueryVendorString.argtypes = [ctypes.c_void_p]
+vaQueryVendorString.restype = ctypes.c_char_p
+vendor = vaQueryVendorString(dpy).decode('utf-8', errors='replace')
+
+print(f"vainfo: VA-API version: {major.value}.{minor.value} (libva 2.23.0)")
+print(f"vainfo: Driver version: {vendor}")
+print("vainfo: Supported profile and entrypoints")
+
+vaMaxNumProfiles = va.vaMaxNumProfiles
+vaMaxNumProfiles.argtypes = [ctypes.c_void_p]
+vaMaxNumProfiles.restype = ctypes.c_int
+max_profiles = vaMaxNumProfiles(dpy)
+
+vaQueryConfigProfiles = va.vaQueryConfigProfiles
+vaQueryConfigProfiles.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int)]
+vaQueryConfigProfiles.restype = ctypes.c_int
+
+profiles_arr = (ctypes.c_int * max_profiles)()
+num_profiles = ctypes.c_int()
+vaQueryConfigProfiles(dpy, profiles_arr, ctypes.byref(num_profiles))
+
+vaProfileStr = va.vaProfileStr
+vaProfileStr.argtypes = [ctypes.c_int]
+vaProfileStr.restype = ctypes.c_char_p
+
+vaMaxNumEntrypoints = va.vaMaxNumEntrypoints
+vaMaxNumEntrypoints.argtypes = [ctypes.c_void_p]
+vaMaxNumEntrypoints.restype = ctypes.c_int
+max_entrypoints = vaMaxNumEntrypoints(dpy)
+
+vaQueryConfigEntrypoints = va.vaQueryConfigEntrypoints
+vaQueryConfigEntrypoints.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int)]
+vaQueryConfigEntrypoints.restype = ctypes.c_int
+
+vaEntrypointStr = va.vaEntrypointStr
+vaEntrypointStr.argtypes = [ctypes.c_int]
+vaEntrypointStr.restype = ctypes.c_char_p
+
+for i in range(num_profiles.value):
+    p = profiles_arr[i]
+    p_str = vaProfileStr(p).decode('utf-8', errors='replace')
+    entrypoints_arr = (ctypes.c_int * max_entrypoints)()
+    num_ep = ctypes.c_int()
+    vaQueryConfigEntrypoints(dpy, p, entrypoints_arr, ctypes.byref(num_ep))
+    for j in range(num_ep.value):
+        ep_str = vaEntrypointStr(entrypoints_arr[j]).decode('utf-8', errors='replace')
+        print(f"      {p_str:<32}:	{ep_str}")

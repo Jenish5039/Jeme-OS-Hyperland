@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Automatic flag ingestion wrapper for Brave Browser on Wayland
+
+# Ensure NVIDIA VA-API environment is present if NVIDIA drives the display
+if "$HOME/.local/bin/jeme-hw-nvidia-display" >/dev/null 2>&1; then
+    export LIBVA_DRIVER_NAME="nvidia"
+    export NVD_BACKEND="direct"
+    export __GLX_VENDOR_LIBRARY_NAME="nvidia"
+fi
+
+FLAGS=()
+if [ -f "$HOME/.config/brave-flags.conf" ]; then
+    while IFS= read -r line || [ -n "$line" ]; do
+        # Strip comments and trim whitespace
+        line="${line%%#*}"
+        line="$(echo "$line" | xargs)"
+        [ -n "$line" ] && FLAGS+=("$line")
+    done < "$HOME/.config/brave-flags.conf"
+fi
+
+# Pin browser and all child renderers to Intel Performance Cores (0-7)
+# Prevents single-threaded web apps (like ChatGPT/React) from being scheduled on slow 1.4 GHz E-cores
+exec taskset -c 0-7 /opt/brave.com/brave/brave "${FLAGS[@]}" "$@"

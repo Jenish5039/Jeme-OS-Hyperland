@@ -148,3 +148,52 @@ When diagnosing an issue:
 * **Never Hardcode Display Outputs**: Use `machine/detect.sh` or `monitors.lua` template.
 * **GPU Driver Segregation**: Keep proprietary NVIDIA flags inside `conf/environments/nvidia.lua`, pure AMD settings in `conf/environments/amd.lua`, and pure Intel settings in `conf/environments/intel.lua`.
 * **Dynamic Paths**: Always use `$HOME` or `os.getenv("HOME")` or `Quickshell.env("HOME")`, never hardcode `/home/<username>/`.
+
+---
+
+## 9. Browser & Chromium Wayland Optimization Standards
+
+To achieve Windows-grade browser responsiveness, low input latency (e.g. ChatGPT typing), and flawless 8K 60 FPS YouTube playback in Brave on Wayland + NVIDIA, configuration must adhere to these standards:
+
+### Authoritative `brave-flags.conf` (`~/.config/brave-flags.conf`)
+```text
+--ozone-platform=wayland
+--ozone-platform-hint=wayland
+--enable-gpu-rasterization
+--enable-features=AcceleratedVideoDecodeLinuxGL,VaapiOnNvidiaGPUs
+--ignore-gpu-blocklist
+--use-gl=angle
+--use-angle=gl
+```
+
+### Authoritative Launcher Wrapper (`~/.local/bin/brave-browser`)
+```bash
+#!/usr/bin/env bash
+# Ensure NVIDIA VA-API environment is present if NVIDIA drives the display
+if "$HOME/.local/bin/jeme-hw-nvidia-display" >/dev/null 2>&1; then
+    export LIBVA_DRIVER_NAME="nvidia"
+    export NVD_BACKEND="direct"
+    export __GLX_VENDOR_LIBRARY_NAME="nvidia"
+fi
+
+FLAGS=()
+if [ -f "$HOME/.config/brave-flags.conf" ]; then
+    while IFS= read -r line || [ -n "$line" ]; do
+        line="${line%%#*}"
+        line="$(echo "$line" | xargs)"
+        [ -n "$line" ] && FLAGS+=("$line")
+    done < "$HOME/.config/brave-flags.conf"
+fi
+
+# Pin browser and child renderers to Intel Performance Cores (0-7)
+# Prevents single-threaded web apps (like ChatGPT/React) from scheduling on 1.4 GHz E-cores
+exec taskset -c 0-7 /opt/brave.com/brave/brave "${FLAGS[@]}" "$@"
+```
+
+### Critical Chromium & Media Rules:
+1. **Enable GPU Rasterization (`--enable-gpu-rasterization`)**: Forces Skia tile rasterization onto the GPU rather than CPU worker threads, eliminating DOM text-input latency.
+2. **VA-API Hardware Video Decoding (`--enable-features=AcceleratedVideoDecodeLinuxGL,VaapiOnNvidiaGPUs`)**: Unblocklists NVIDIA GPUs for VA-API in Chromium, routing 8K AV1/VP9 decoding to NVIDIA Ampere NVDEC silicon via `libva-nvidia-driver`.
+3. **ANGLE OpenGL Backend (`--use-gl=angle --use-angle=gl`)**: Required for Chromium's single-buffer DMA-BUF importer on NVIDIA to bind decoded VRAM textures directly into EGL without falling back or failing pre-sandbox initialization.
+4. **P-Core CPU Affinity (`taskset -c 0-7`)**: On Intel 12th/13th/14th Gen hybrid CPUs (P-cores + E-cores), browser main threads and React DOM reconciliation must be pinned to P-cores to prevent severe typing and scrolling lag caused by E-core throttling.
+5. **Avoid Standalone `--enable-zero-copy`**: In modern Chromium on Wayland, forcing `--enable-zero-copy` without full swapchain coordination can destabilize DOM input event pacing; the ANGLE + VA-API pipeline already provides true hardware zero-copy presentation for video.
+6. **NEVER Add `TouchpadOverscrollHistoryNavigation`**: Causes a synchronous hit-testing barrier on the main thread, introducing mouse wheel and touchpad scrolling hitching.
