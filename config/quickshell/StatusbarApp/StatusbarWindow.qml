@@ -48,7 +48,7 @@ PanelWindow {
     readonly property var defaultSettings: ({
         "bar":    { "height": 38, "reservedHeight": 50, "enabled": true, "alwaysExpanded": true },
         "pill":   { "collapsedWidth": 0, "expandedWidth": 0.94, "radius": 12, "animationDuration": 350 },
-        "modules":{ "left": ["workspaces", "terminal", "cava"],
+        "modules":{ "left": ["workspaces", "terminal", "clipboard", "cava"],
                     "center": ["launcher", "clock", "swaync"],
                     "right": ["updates", "battery", "powerprofile", "volume", "systemtray", "logo", "power"] },
         "border": { "width": 1.5, "colorTop": "", "colorBottom": "" },
@@ -228,6 +228,7 @@ PanelWindow {
     // Each module name in the settings file maps to the component placed into
     // the left/center/right groups. Unknown names load nothing.
     Component { id: cTerminal;   TerminalModule {} }
+    Component { id: cClipboard;  ClipboardModule {} }
     Component {
         id: cWorkspaces
         WorkspacesModule {
@@ -292,6 +293,7 @@ PanelWindow {
 
     readonly property var moduleComponents: ({
         "terminal":   cTerminal,
+        "clipboard":  cClipboard,
         "workspaces": cWorkspaces,
         "launcher":   cLauncher,
         "clock":      cClock,
