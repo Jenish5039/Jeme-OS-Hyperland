@@ -23,34 +23,70 @@ Rectangle {
     readonly property bool hasPlayer: activePlayer !== null
     readonly property bool isPlaying: hasPlayer && activePlayer.isPlaying
     readonly property string trackTitle: hasPlayer && activePlayer.trackTitle ? activePlayer.trackTitle : ""
-    readonly property string trackArtist: {
-        if (!hasPlayer) return "";
-        if (activePlayer.trackArtist) return activePlayer.trackArtist;
-        if (activePlayer.trackArtists && activePlayer.trackArtists.length > 0) return activePlayer.trackArtists[0];
-        return "";
-    }
     readonly property string artUrl: hasPlayer && activePlayer.trackArtUrl ? activePlayer.trackArtUrl : ""
 
     // Collapse completely when nothing is playing/available
     readonly property bool collapsed: !hasPlayer || (trackTitle === "" && !isPlaying)
     visible: !collapsed
 
+    // Hover handler for non-blocking hover detection
+    HoverHandler {
+        id: hoverHandler
+    }
+
     // Expansion state on hover or manual lock
     property bool manualExpanded: false
-    property bool isExpanded: (mediaMouse.containsMouse || manualExpanded) && !collapsed
+    property bool isExpanded: (hoverHandler.hovered || manualExpanded) && !collapsed
 
     // Keyboard navigation focus flag
     property bool focused: false
 
     function activate(): void {
-        manualExpanded = !manualExpanded;
+        togglePlay()
+    }
+
+    // Safe playback actions with DBus MPRIS fallback to playerctl
+    function togglePlay(): void {
+        if (root.activePlayer && typeof root.activePlayer.togglePlaying === "function") {
+            try {
+                root.activePlayer.togglePlaying();
+                return;
+            } catch (e) {
+                console.warn("Mpris togglePlaying error:", e);
+            }
+        }
+        Quickshell.execDetached(["playerctl", "play-pause"]);
+    }
+
+    function previousTrack(): void {
+        if (root.activePlayer && typeof root.activePlayer.previous === "function") {
+            try {
+                root.activePlayer.previous();
+                return;
+            } catch (e) {
+                console.warn("Mpris previous error:", e);
+            }
+        }
+        Quickshell.execDetached(["playerctl", "previous"]);
+    }
+
+    function nextTrack(): void {
+        if (root.activePlayer && typeof root.activePlayer.next === "function") {
+            try {
+                root.activePlayer.next();
+                return;
+            } catch (e) {
+                console.warn("Mpris next error:", e);
+            }
+        }
+        Quickshell.execDetached(["playerctl", "next"]);
     }
 
     implicitHeight: 28
     implicitWidth: collapsed ? 0 : (isExpanded ? (expandedContent.implicitWidth + 16) : (compactContent.implicitWidth + 12))
     radius: 14
-    color: (mediaMouse.containsMouse || root.focused) ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.12) : "transparent"
-    border.color: (mediaMouse.containsMouse || root.focused) ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.30) : "transparent"
+    color: (hoverHandler.hovered || root.focused) ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.12) : "transparent"
+    border.color: (hoverHandler.hovered || root.focused) ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.30) : "transparent"
     border.width: 1
     clip: true
 
@@ -105,9 +141,26 @@ Rectangle {
         }
     }
 
+    // Background click handler (z: 0 so child buttons take precedence)
+    MouseArea {
+        id: bgMouse
+        anchors.fill: parent
+        z: 0
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        cursorShape: Qt.PointingHandCursor
+        onClicked: mouse => {
+            if (mouse.button === Qt.RightButton) {
+                Quickshell.execDetached(["qs", "ipc", "call", "audio", "toggle"])
+            } else {
+                root.manualExpanded = !root.manualExpanded;
+            }
+        }
+    }
+
     // --- COMPACT VIEW ---
     RowLayout {
         id: compactContent
+        z: 1
         anchors.left: parent.left
         anchors.leftMargin: 6
         anchors.verticalCenter: parent.verticalCenter
@@ -145,10 +198,10 @@ Rectangle {
             }
         }
 
-        // Title
+        // Title (Single title, no artist)
         Text {
             Layout.alignment: Qt.AlignVCenter
-            Layout.maximumWidth: 100
+            Layout.maximumWidth: 120
             text: root.trackTitle
             color: Theme.primary
             font.family: Theme.fontFamily
@@ -157,40 +210,17 @@ Rectangle {
             elide: Text.ElideRight
         }
 
-        // Dot separator (if artist exists)
-        Text {
-            Layout.alignment: Qt.AlignVCenter
-            text: "•"
-            color: Theme.outline
-            font.family: Theme.fontFamily
-            font.pixelSize: 11
-            visible: root.trackArtist !== ""
-            opacity: 0.6
-        }
-
-        // Artist
-        Text {
-            Layout.alignment: Qt.AlignVCenter
-            Layout.maximumWidth: 75
-            text: root.trackArtist
-            color: Theme.on_background
-            font.family: Theme.fontFamily
-            font.pixelSize: 12
-            opacity: 0.8
-            elide: Text.ElideRight
-            visible: root.trackArtist !== ""
-        }
-
         // Mini Play/Pause button
         Rectangle {
+            id: playBtnCompact
             implicitWidth: 20
             implicitHeight: 20
             radius: 10
-            color: playBtnMouse.containsMouse ? Theme.primary : "transparent"
+            color: playBtnMouse.containsMouse ? Theme.primary : Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.15)
             Layout.alignment: Qt.AlignVCenter
 
             Behavior on color {
-                ColorAnimation { duration: 200 }
+                ColorAnimation { duration: 150 }
             }
 
             Text {
@@ -207,9 +237,7 @@ Rectangle {
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
-                    if (root.activePlayer) {
-                        root.activePlayer.isPlaying = !root.activePlayer.isPlaying;
-                    }
+                    root.togglePlay()
                 }
             }
         }
@@ -251,6 +279,7 @@ Rectangle {
     // --- EXPANDED INTERACTIVE VIEW ---
     RowLayout {
         id: expandedContent
+        z: 1
         anchors.left: parent.left
         anchors.leftMargin: 8
         anchors.verticalCenter: parent.verticalCenter
@@ -288,30 +317,16 @@ Rectangle {
             }
         }
 
-        // Track & Artist Column
-        ColumnLayout {
+        // Track Title (Single bold title, no artist)
+        Text {
             Layout.alignment: Qt.AlignVCenter
-            spacing: 0
-
-            Text {
-                Layout.maximumWidth: 120
-                text: root.trackTitle
-                color: Theme.primary
-                font.family: Theme.fontFamily
-                font.pixelSize: 12
-                font.bold: true
-                elide: Text.ElideRight
-            }
-
-            Text {
-                Layout.maximumWidth: 120
-                text: root.trackArtist !== "" ? root.trackArtist : "Unknown Artist"
-                color: Theme.on_background
-                font.family: Theme.fontFamily
-                font.pixelSize: 10
-                opacity: 0.75
-                elide: Text.ElideRight
-            }
+            Layout.maximumWidth: 130
+            text: root.trackTitle
+            color: Theme.primary
+            font.family: Theme.fontFamily
+            font.pixelSize: 13
+            font.bold: true
+            elide: Text.ElideRight
         }
 
         // Media Control Buttons: Prev, Play/Pause, Next
@@ -319,12 +334,17 @@ Rectangle {
             Layout.alignment: Qt.AlignVCenter
             spacing: 4
 
-            // Previous
+            // Previous Button
             Rectangle {
                 implicitWidth: 22
                 implicitHeight: 22
                 radius: 11
-                color: prevMouse.containsMouse ? Theme.primary : "transparent"
+                color: prevMouse.containsMouse ? Theme.primary : Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.15)
+
+                Behavior on color {
+                    ColorAnimation { duration: 150 }
+                }
+
                 Text {
                     anchors.centerIn: parent
                     text: "󰒮"
@@ -332,21 +352,23 @@ Rectangle {
                     font.pixelSize: 12
                     color: prevMouse.containsMouse ? Theme.background : Theme.primary
                 }
+
                 MouseArea {
                     id: prevMouse
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: if (root.activePlayer) root.activePlayer.previous()
+                    onClicked: root.previousTrack()
                 }
             }
 
-            // Play / Pause
+            // Play / Pause Button
             Rectangle {
                 implicitWidth: 24
                 implicitHeight: 24
                 radius: 12
                 color: Theme.primary
+
                 Text {
                     anchors.centerIn: parent
                     text: root.isPlaying ? "󰏤" : "󰐊"
@@ -354,19 +376,27 @@ Rectangle {
                     font.pixelSize: 13
                     color: Theme.background
                 }
+
                 MouseArea {
+                    id: playPauseExpandedMouse
                     anchors.fill: parent
+                    hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: if (root.activePlayer) root.activePlayer.isPlaying = !root.activePlayer.isPlaying
+                    onClicked: root.togglePlay()
                 }
             }
 
-            // Next
+            // Next Button
             Rectangle {
                 implicitWidth: 22
                 implicitHeight: 22
                 radius: 11
-                color: nextMouse.containsMouse ? Theme.primary : "transparent"
+                color: nextMouse.containsMouse ? Theme.primary : Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.15)
+
+                Behavior on color {
+                    ColorAnimation { duration: 150 }
+                }
+
                 Text {
                     anchors.centerIn: parent
                     text: "󰒭"
@@ -374,28 +404,14 @@ Rectangle {
                     font.pixelSize: 12
                     color: nextMouse.containsMouse ? Theme.background : Theme.primary
                 }
+
                 MouseArea {
                     id: nextMouse
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: if (root.activePlayer) root.activePlayer.next()
+                    onClicked: root.nextTrack()
                 }
-            }
-        }
-    }
-
-    MouseArea {
-        id: mediaMouse
-        anchors.fill: parent
-        hoverEnabled: true
-        acceptedButtons: Qt.LeftButton | Qt.RightButton
-        cursorShape: Qt.PointingHandCursor
-        onClicked: mouse => {
-            if (mouse.button === Qt.RightButton) {
-                Quickshell.execDetached(["qs", "ipc", "call", "audio", "toggle"])
-            } else {
-                root.activate()
             }
         }
     }
