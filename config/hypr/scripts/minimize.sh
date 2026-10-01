@@ -163,15 +163,12 @@ def close_special_minimized():
         monitors = json.loads(run_hyprctl(["monitors", "-j"]))
         for m in monitors:
             sw = m.get("specialWorkspace", {})
-            if sw.get("name") == "special:minimized" or sw.get("id", 0) != 0:
+            if sw.get("name") == "special:minimized":
                 hypr_eval('hl.dispatch(hl.dsp.workspace.toggle_special("minimized"))')
     except Exception:
         pass
 
 def minimize_active():
-    clients = get_clients()
-    cleanup_stale_states(clients)
-    
     active = get_active_window()
     if not active or not active.get("address"):
         return
@@ -185,17 +182,17 @@ def minimize_active():
         return
         
     addr = active.get("address")
+    clients = get_clients()
+    cleanup_stale_states(clients)
     save_window_state(active, clients)
     
-    # If window is fullscreen, unfullscreen first
+    # Move silently to special:minimized so the special workspace is never opened or flashed
     if active.get("fullscreen", 0) != 0:
-        hypr_eval("hl.dispatch(hl.dsp.window.fullscreen({ mode = 'fullscreen', action = 'off' }))")
+        lua = f"hl.dispatch(hl.dsp.window.fullscreen({{ mode = 'fullscreen', action = 'off' }})); hl.dispatch(hl.dsp.window.move({{ workspace = 'special:minimized', silent = true, window = 'address:{addr}' }}))"
+    else:
+        lua = f"hl.dispatch(hl.dsp.window.move({{ workspace = 'special:minimized', silent = true, window = 'address:{addr}' }}))"
         
-    # Dispatch move to special:minimized
-    lua = f"hl.dispatch(hl.dsp.window.move({{ workspace = 'special:minimized', window = 'address:{addr}' }}))"
     hypr_eval(lua)
-    
-    # Immediately close special:minimized on monitor so the window disappears
     close_special_minimized()
 
 def restore_window(addr, target_workspace=None):
