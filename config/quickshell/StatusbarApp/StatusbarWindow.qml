@@ -302,7 +302,7 @@ PanelWindow {
     }
 
     // =========================================================================
-    // 1. LEFT FLOATING GLASS CAPSULE (Workspaces & Launchers)
+    // 1. LEFT FLOATING GLASS CAPSULE (Workspaces, Terminal & Media HUD)
     // =========================================================================
     GlassCapsule {
         id: leftCapsule
@@ -315,7 +315,7 @@ PanelWindow {
         width: leftRow.implicitWidth + 20
 
         Behavior on width {
-            NumberAnimation { duration: 250; easing.type: Easing.OutQuint }
+            NumberAnimation { duration: 320; easing.type: Easing.OutQuint }
         }
 
         RowLayout {
@@ -344,16 +344,29 @@ PanelWindow {
                 onLoaded: Qt.callLater(root.rebuildNavItems)
             }
 
-            Loader {
+            // Divider separating terminal from media (only when media is playing)
+            Rectangle {
                 Layout.alignment: Qt.AlignVCenter
-                sourceComponent: cLauncher
+                width: 1
+                height: 16
+                color: Theme.outline_variant
+                opacity: 0.35
+                visible: mediaLoader.item && !mediaLoader.item.collapsed
+            }
+
+            // Media Player + CAVA Section (moved to the left next to terminal)
+            Loader {
+                id: mediaLoader
+                Layout.alignment: Qt.AlignVCenter
+                sourceComponent: cMedia
+                visible: item && !item.collapsed
                 onLoaded: Qt.callLater(root.rebuildNavItems)
             }
         }
     }
 
     // =========================================================================
-    // 2. CENTER FLOATING GLASS CAPSULE (Clock & Calendar Anchor)
+    // 2. CENTER FLOATING GLASS CAPSULE (Launcher, Clock & Notification Center)
     // =========================================================================
     GlassCapsule {
         id: centerCapsule
@@ -371,7 +384,22 @@ PanelWindow {
         RowLayout {
             id: centerRow
             anchors.centerIn: parent
-            spacing: 10
+            spacing: 8
+
+            // Application Launcher (moved to the clock pill)
+            Loader {
+                Layout.alignment: Qt.AlignVCenter
+                sourceComponent: cLauncher
+                onLoaded: Qt.callLater(root.rebuildNavItems)
+            }
+
+            Rectangle {
+                Layout.alignment: Qt.AlignVCenter
+                width: 1
+                height: 16
+                color: Theme.outline_variant
+                opacity: 0.35
+            }
 
             Loader {
                 Layout.alignment: Qt.AlignVCenter
@@ -396,7 +424,7 @@ PanelWindow {
     }
 
     // =========================================================================
-    // 3. RIGHT FLOATING GLASS CAPSULE (Media Player + System Status HUD)
+    // 3. RIGHT FLOATING GLASS CAPSULE (System Status & Controls HUD)
     // =========================================================================
     GlassCapsule {
         id: rightCapsule
@@ -409,32 +437,13 @@ PanelWindow {
         width: rightRow.implicitWidth + 20
 
         Behavior on width {
-            NumberAnimation { duration: 320; easing.type: Easing.OutQuint }
+            NumberAnimation { duration: 250; easing.type: Easing.OutQuint }
         }
 
         RowLayout {
             id: rightRow
             anchors.centerIn: parent
             spacing: 8
-
-            // Media Player Section
-            Loader {
-                id: mediaLoader
-                Layout.alignment: Qt.AlignVCenter
-                sourceComponent: cMedia
-                visible: item && !item.collapsed
-                onLoaded: Qt.callLater(root.rebuildNavItems)
-            }
-
-            // Subtle divider after media (only when media is playing)
-            Rectangle {
-                Layout.alignment: Qt.AlignVCenter
-                width: 1
-                height: 16
-                color: Theme.outline_variant
-                opacity: 0.35
-                visible: mediaLoader.item && !mediaLoader.item.collapsed
-            }
 
             // Updates Module
             Loader {
