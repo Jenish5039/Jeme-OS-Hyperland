@@ -82,10 +82,10 @@ Rectangle {
     }
 
     implicitHeight: 28
-    implicitWidth: collapsed ? 0 : (isExpanded ? (expandedContent.implicitWidth + 16) : (compactContent.implicitWidth + 12))
+    implicitWidth: collapsed ? 0 : (isExpanded ? (expandedContent.implicitWidth + 14) : (compactContent.implicitWidth + 10))
     radius: 14
-    color: (hoverHandler.hovered || root.focused) ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.12) : "transparent"
-    border.color: (hoverHandler.hovered || root.focused) ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.30) : "transparent"
+    color: (hoverHandler.hovered || root.focused) ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.10) : "transparent"
+    border.color: (hoverHandler.hovered || root.focused) ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.25) : "transparent"
     border.width: 1
     clip: true
 
@@ -171,19 +171,17 @@ Rectangle {
             NumberAnimation { duration: 200; easing.type: Easing.OutQuint }
         }
 
-        // Simple Music Icon
-        Rectangle {
-            implicitWidth: 20
+        // Clean Music Icon (No background fill)
+        Item {
+            implicitWidth: 16
             implicitHeight: 20
-            radius: 5
-            color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.15)
             Layout.alignment: Qt.AlignVCenter
 
             Text {
                 anchors.centerIn: parent
                 text: "󰝚"
                 font.family: "monospace"
-                font.pixelSize: 12
+                font.pixelSize: 13
                 color: Theme.primary
             }
         }
@@ -200,25 +198,24 @@ Rectangle {
             elide: Text.ElideRight
         }
 
-        // Mini Play/Pause button
-        Rectangle {
+        // Mini Play/Pause button (No background fill)
+        Item {
             id: playBtnCompact
-            implicitWidth: 20
+            implicitWidth: 18
             implicitHeight: 20
-            radius: 10
-            color: playBtnMouse.containsMouse ? Theme.primary : Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.15)
             Layout.alignment: Qt.AlignVCenter
-
-            Behavior on color {
-                ColorAnimation { duration: 150 }
-            }
 
             Text {
                 anchors.centerIn: parent
                 text: root.isPlaying ? "󰏤" : "󰐊"
                 font.family: "monospace"
-                font.pixelSize: 12
-                color: playBtnMouse.containsMouse ? Theme.background : Theme.primary
+                font.pixelSize: 13
+                color: Theme.primary
+                opacity: playBtnMouse.containsMouse ? 1.0 : 0.75
+
+                Behavior on opacity {
+                    NumberAnimation { duration: 150 }
+                }
             }
 
             MouseArea {
@@ -226,9 +223,7 @@ Rectangle {
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    root.togglePlay()
-                }
+                onClicked: root.togglePlay()
             }
         }
 
@@ -281,12 +276,10 @@ Rectangle {
             NumberAnimation { duration: 250; easing.type: Easing.OutQuint }
         }
 
-        // Simple Music Icon
-        Rectangle {
-            implicitWidth: 22
-            implicitHeight: 22
-            radius: 6
-            color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.15)
+        // Clean Music Icon (No background fill)
+        Item {
+            implicitWidth: 16
+            implicitHeight: 20
             Layout.alignment: Qt.AlignVCenter
 
             Text {
@@ -310,28 +303,27 @@ Rectangle {
             elide: Text.ElideRight
         }
 
-        // Media Control Buttons: Prev, Play/Pause, Next
+        // Media Control Buttons: Prev, Play/Pause, Next (No background fill)
         RowLayout {
             Layout.alignment: Qt.AlignVCenter
-            spacing: 4
+            spacing: 6
 
             // Previous Button
-            Rectangle {
-                implicitWidth: 22
-                implicitHeight: 22
-                radius: 11
-                color: prevMouse.containsMouse ? Theme.primary : Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.15)
-
-                Behavior on color {
-                    ColorAnimation { duration: 150 }
-                }
+            Item {
+                implicitWidth: 18
+                implicitHeight: 20
 
                 Text {
                     anchors.centerIn: parent
                     text: "󰒮"
                     font.family: "monospace"
-                    font.pixelSize: 12
-                    color: prevMouse.containsMouse ? Theme.background : Theme.primary
+                    font.pixelSize: 13
+                    color: Theme.primary
+                    opacity: prevMouse.containsMouse ? 1.0 : 0.75
+
+                    Behavior on opacity {
+                        NumberAnimation { duration: 150 }
+                    }
                 }
 
                 MouseArea {
@@ -344,18 +336,21 @@ Rectangle {
             }
 
             // Play / Pause Button
-            Rectangle {
-                implicitWidth: 24
-                implicitHeight: 24
-                radius: 12
-                color: Theme.primary
+            Item {
+                implicitWidth: 18
+                implicitHeight: 20
 
                 Text {
                     anchors.centerIn: parent
                     text: root.isPlaying ? "󰏤" : "󰐊"
                     font.family: "monospace"
-                    font.pixelSize: 13
-                    color: Theme.background
+                    font.pixelSize: 14
+                    color: Theme.primary
+                    opacity: playPauseExpandedMouse.containsMouse ? 1.0 : 0.85
+
+                    Behavior on opacity {
+                        NumberAnimation { duration: 150 }
+                    }
                 }
 
                 MouseArea {
@@ -368,22 +363,21 @@ Rectangle {
             }
 
             // Next Button
-            Rectangle {
-                implicitWidth: 22
-                implicitHeight: 22
-                radius: 11
-                color: nextMouse.containsMouse ? Theme.primary : Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.15)
-
-                Behavior on color {
-                    ColorAnimation { duration: 150 }
-                }
+            Item {
+                implicitWidth: 18
+                implicitHeight: 20
 
                 Text {
                     anchors.centerIn: parent
                     text: "󰒭"
                     font.family: "monospace"
-                    font.pixelSize: 12
-                    color: nextMouse.containsMouse ? Theme.background : Theme.primary
+                    font.pixelSize: 13
+                    color: Theme.primary
+                    opacity: nextMouse.containsMouse ? 1.0 : 0.75
+
+                    Behavior on opacity {
+                        NumberAnimation { duration: 150 }
+                    }
                 }
 
                 MouseArea {
