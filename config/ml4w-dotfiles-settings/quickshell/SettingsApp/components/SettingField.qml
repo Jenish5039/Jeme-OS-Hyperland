@@ -3,7 +3,7 @@ import QtQuick.Layouts
 import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
-import qs.CustomTheme
+import "../../CustomTheme"
 
 Rectangle {
     id: root
@@ -21,8 +21,8 @@ Rectangle {
     implicitWidth: 500
     implicitHeight: Math.max(80, contentRow.implicitHeight + 24)
     radius: 10
-    color: Theme.background
-    border.color: Theme.primary
+    color: Theme.surface_container
+    border.color: Theme.outline_variant
     border.width: 1
 
     onSettingsDataChanged: refresh()
@@ -149,7 +149,7 @@ Rectangle {
                 font.family: Theme.fontFamily
                 font.pixelSize: 15
                 font.bold: true
-                color: Theme.primary
+                color: Theme.on_surface
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
             }
@@ -157,9 +157,8 @@ Rectangle {
             Text {
                 text: root.setting && root.setting.instructions ? root.setting.instructions : ""
                 font.family: Theme.fontFamily
-                font.pixelSize: 12
-                color: Theme.on_background
-                opacity: 0.8
+                font.pixelSize: 13
+                color: Theme.on_surface_variant
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
                 visible: root.setting && root.setting.instructions !== undefined && root.setting.instructions !== ""
@@ -198,8 +197,8 @@ Rectangle {
                     implicitWidth: 48
                     implicitHeight: 26
                     radius: 13
-                    color: toggleControl.checked ? Theme.primary : Theme.background
-                    border.color: Theme.primary
+                    color: toggleControl.checked ? Theme.primary : Theme.surface_container_highest
+                    border.color: toggleControl.checked ? Theme.primary : Theme.outline
                     border.width: 1
 
                     anchors.verticalCenter: parent.verticalCenter
@@ -210,7 +209,7 @@ Rectangle {
                         width: 22
                         implicitHeight: 22
                         radius: 11
-                        color: toggleControl.checked ? Theme.background : Theme.on_primary
+                        color: toggleControl.checked ? Theme.on_primary : Theme.outline
                         Behavior on x { NumberAnimation { duration: 150 } }
                     }
                 }
@@ -234,9 +233,9 @@ Rectangle {
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 38
-                    color: Theme.background
+                    color: Theme.surface_container_highest
                     radius: 8
-                    border.color: Theme.primary
+                    border.color: valInput.activeFocus ? Theme.primary : Theme.outline_variant
                     border.width: 1
 
                     TextInput {
@@ -244,7 +243,7 @@ Rectangle {
                         anchors.fill: parent
                         anchors.margins: 8
                         verticalAlignment: Text.AlignVCenter
-                        color: Theme.primary
+                        color: Theme.on_surface
                         font.family: Theme.fontFamily
                         font.pixelSize: 13
                         text: root.exactVal
@@ -263,8 +262,8 @@ Rectangle {
                             anchors.fill: parent
                             verticalAlignment: Text.AlignVCenter
                             text: "Enter value..."
-                            color: Theme.primary
-                            opacity: 0.5
+                            color: Theme.on_surface_variant
+                            opacity: 0.6
                             visible: valInput.text === ""
                             font.family: Theme.fontFamily
                             font.pixelSize: 13
@@ -297,7 +296,7 @@ Rectangle {
                         radius: 8
                         color: root.isSavedFeedback 
                             ? Theme.primary 
-                            : (saveBtn.hovered ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.2) : "transparent")
+                            : (saveBtn.hovered ? Theme.surface_container_highest : Theme.surface_container_high)
                         border.color: Theme.primary
                         border.width: 1
                     }
@@ -355,8 +354,8 @@ Rectangle {
                 }
 
                 background: Rectangle {
-                    color: Theme.background
-                    border.color: combo.activeFocus || combo.hovered ? Theme.primary : Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.6)
+                    color: Theme.surface_container_highest
+                    border.color: combo.activeFocus || combo.hovered ? Theme.primary : Theme.outline_variant
                     radius: 8
                     border.width: 1
                 }
@@ -373,7 +372,7 @@ Rectangle {
                     }
                     font.family: Theme.fontFamily
                     font.pixelSize: 13
-                    color: Theme.primary
+                    color: Theme.on_surface
                     verticalAlignment: Text.AlignVCenter
                     leftPadding: 12
                     rightPadding: 32
@@ -404,8 +403,8 @@ Rectangle {
                     }
 
                     background: Rectangle {
-                        color: Theme.background
-                        border.color: Theme.primary
+                        color: Theme.surface_container_high
+                        border.color: Theme.outline_variant
                         border.width: 1
                         radius: 8
                     }
@@ -425,7 +424,7 @@ Rectangle {
                     contentItem: Text {
                         text: modelData
                         font.family: Theme.fontFamily
-                        color: highlighted ? Theme.on_primary : Theme.primary
+                        color: highlighted ? Theme.on_primary : Theme.on_surface
                         font.pixelSize: 13
                         font.bold: combo.currentIndex === index
                         verticalAlignment: Text.AlignVCenter

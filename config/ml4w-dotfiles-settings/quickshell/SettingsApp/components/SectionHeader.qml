@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
-import qs.CustomTheme
+import "../../CustomTheme"
 
 ColumnLayout {
     id: root
@@ -15,9 +15,9 @@ ColumnLayout {
     Text {
         text: root.title
         font.family: Theme.fontFamily
-        font.pixelSize: 26
+        font.pixelSize: 24
         font.bold: true
-        color: Theme.on_background
+        color: Theme.on_surface
         Layout.fillWidth: true
     }
 
@@ -25,8 +25,7 @@ ColumnLayout {
         text: root.subtitle
         font.family: Theme.fontFamily
         font.pixelSize: 13
-        color: Theme.on_background
-        opacity: 0.75
+        color: Theme.on_surface_variant
         visible: root.subtitle !== ""
         wrapMode: Text.WordWrap
         Layout.fillWidth: true

@@ -3,7 +3,7 @@ import QtQuick.Layouts
 import QtQuick.Controls
 import Quickshell
 import Quickshell.Services.Pipewire
-import qs.CustomTheme
+import "../../CustomTheme"
 import "../components"
 
 ColumnLayout {
@@ -95,8 +95,8 @@ ColumnLayout {
         Layout.fillWidth: true
         Layout.preferredHeight: outputColumn.implicitHeight + 32
         radius: 10
-        color: Theme.background
-        border.color: Theme.primary
+        color: Theme.surface_container
+        border.color: Theme.outline_variant
         border.width: 1
 
         ColumnLayout {
@@ -119,7 +119,7 @@ ColumnLayout {
                         font.family: Theme.fontFamily
                         font.pixelSize: 15
                         font.bold: true
-                        color: Theme.primary
+                        color: Theme.on_surface
                     }
 
                     Text {
@@ -127,9 +127,8 @@ ColumnLayout {
                             ? (Pipewire.defaultAudioSink.description || Pipewire.defaultAudioSink.name)
                             : "Searching for output devices..."
                         font.family: Theme.fontFamily
-                        font.pixelSize: 12
-                        color: Theme.on_background
-                        opacity: 0.8
+                        font.pixelSize: 13
+                        color: Theme.on_surface_variant
                         elide: Text.ElideRight
                         Layout.fillWidth: true
                     }
@@ -140,8 +139,8 @@ ColumnLayout {
                     Layout.preferredWidth: 64
                     Layout.preferredHeight: 28
                     radius: 6
-                    color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.12)
-                    border.color: Theme.primary
+                    color: Theme.surface_container_high
+                    border.color: Theme.outline_variant
                     border.width: 1
 
                     Text {
@@ -189,8 +188,8 @@ ColumnLayout {
                         width: outputSlider.availableWidth
                         height: implicitHeight
                         radius: 3
-                        color: Theme.background
-                        border.color: Theme.primary
+                        color: Theme.surface_container_highest
+                        border.color: Theme.outline_variant
                         border.width: 1
 
                         Rectangle {
@@ -207,8 +206,8 @@ ColumnLayout {
                         implicitWidth: 16
                         implicitHeight: 16
                         radius: 8
-                        color: outputSlider.pressed ? Theme.background : Theme.primary
-                        border.color: Theme.primary
+                        color: outputSlider.pressed ? Theme.on_primary : Theme.primary
+                        border.color: Theme.outline_variant
                         border.width: 1
 
                         MouseArea {
@@ -233,7 +232,7 @@ ColumnLayout {
                         font.family: Theme.fontFamily
                         font.pixelSize: 12
                         font.bold: true
-                        color: outputMuteBtn.isMuted ? Theme.on_primary : Theme.primary
+                        color: outputMuteBtn.isMuted ? Theme.on_error_container : Theme.primary
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                     }
@@ -241,9 +240,9 @@ ColumnLayout {
                     background: Rectangle {
                         radius: 6
                         color: outputMuteBtn.isMuted 
-                            ? Theme.primary 
-                            : (outputMuteBtn.hovered ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.15) : "transparent")
-                        border.color: Theme.primary
+                            ? Theme.error_container 
+                            : (outputMuteBtn.hovered ? Theme.surface_container_highest : Theme.surface_container_high)
+                        border.color: Theme.outline_variant
                         border.width: 1
                     }
 
@@ -270,7 +269,7 @@ ColumnLayout {
                 Text {
                     text: "Select Output Device"
                     font.family: Theme.fontFamily
-                    font.pixelSize: 12
+                    font.pixelSize: 13
                     font.bold: true
                     color: Theme.primary
                 }
@@ -309,8 +308,8 @@ ColumnLayout {
                     }
 
                     background: Rectangle {
-                        color: Theme.background
-                        border.color: outputCombo.activeFocus || outputCombo.hovered ? Theme.primary : Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.6)
+                        color: Theme.surface_container_high
+                        border.color: outputCombo.activeFocus || outputCombo.hovered ? Theme.primary : Theme.outline_variant
                         radius: 8
                         border.width: 1
                     }
@@ -321,7 +320,7 @@ ColumnLayout {
                             : "Choose device..."
                         font.family: Theme.fontFamily
                         font.pixelSize: 13
-                        color: Theme.primary
+                        color: Theme.on_surface
                         verticalAlignment: Text.AlignVCenter
                         leftPadding: 12
                         rightPadding: 32
@@ -334,7 +333,7 @@ ColumnLayout {
                         anchors.verticalCenter: parent.verticalCenter
                         text: outputCombo.popup.visible ? "▲" : "▼"
                         font.pixelSize: 10
-                        color: Theme.primary
+                        color: Theme.on_surface_variant
                     }
 
                     popup: Popup {
@@ -352,8 +351,8 @@ ColumnLayout {
                         }
 
                         background: Rectangle {
-                            color: Theme.background
-                            border.color: Theme.primary
+                            color: Theme.surface_container_high
+                            border.color: Theme.outline_variant
                             border.width: 1
                             radius: 8
                         }
@@ -373,7 +372,7 @@ ColumnLayout {
                         contentItem: Text {
                             text: modelData
                             font.family: Theme.fontFamily
-                            color: highlighted ? Theme.on_primary : Theme.primary
+                            color: highlighted ? Theme.on_primary : (outputCombo.currentIndex === index ? Theme.primary : Theme.on_surface)
                             font.pixelSize: 13
                             font.bold: outputCombo.currentIndex === index
                             verticalAlignment: Text.AlignVCenter
@@ -383,7 +382,7 @@ ColumnLayout {
                         }
 
                         background: Rectangle {
-                            color: highlighted ? Theme.primary : (outputCombo.currentIndex === index ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.15) : "transparent")
+                            color: highlighted ? Theme.primary : (outputCombo.currentIndex === index ? Theme.surface_container_highest : "transparent")
                             radius: 4
                         }
                         highlighted: outputCombo.highlightedIndex === index
@@ -400,8 +399,8 @@ ColumnLayout {
         Layout.fillWidth: true
         Layout.preferredHeight: inputColumn.implicitHeight + 32
         radius: 10
-        color: Theme.background
-        border.color: Theme.primary
+        color: Theme.surface_container
+        border.color: Theme.outline_variant
         border.width: 1
 
         ColumnLayout {
@@ -424,7 +423,7 @@ ColumnLayout {
                         font.family: Theme.fontFamily
                         font.pixelSize: 15
                         font.bold: true
-                        color: Theme.primary
+                        color: Theme.on_surface
                     }
 
                     Text {
@@ -432,9 +431,8 @@ ColumnLayout {
                             ? (Pipewire.defaultAudioSource.description || Pipewire.defaultAudioSource.name)
                             : "No microphone detected"
                         font.family: Theme.fontFamily
-                        font.pixelSize: 12
-                        color: Theme.on_background
-                        opacity: 0.8
+                        font.pixelSize: 13
+                        color: Theme.on_surface_variant
                         elide: Text.ElideRight
                         Layout.fillWidth: true
                     }
@@ -445,8 +443,8 @@ ColumnLayout {
                     Layout.preferredWidth: 64
                     Layout.preferredHeight: 28
                     radius: 6
-                    color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.12)
-                    border.color: Theme.primary
+                    color: Theme.surface_container_high
+                    border.color: Theme.outline_variant
                     border.width: 1
 
                     Text {
@@ -494,8 +492,8 @@ ColumnLayout {
                         width: inputSlider.availableWidth
                         height: implicitHeight
                         radius: 3
-                        color: Theme.background
-                        border.color: Theme.primary
+                        color: Theme.surface_container_highest
+                        border.color: Theme.outline_variant
                         border.width: 1
 
                         Rectangle {
@@ -512,8 +510,8 @@ ColumnLayout {
                         implicitWidth: 16
                         implicitHeight: 16
                         radius: 8
-                        color: inputSlider.pressed ? Theme.background : Theme.primary
-                        border.color: Theme.primary
+                        color: inputSlider.pressed ? Theme.on_primary : Theme.primary
+                        border.color: Theme.outline_variant
                         border.width: 1
 
                         MouseArea {
@@ -538,7 +536,7 @@ ColumnLayout {
                         font.family: Theme.fontFamily
                         font.pixelSize: 12
                         font.bold: true
-                        color: inputMuteBtn.isMuted ? Theme.on_primary : Theme.primary
+                        color: inputMuteBtn.isMuted ? Theme.on_error_container : Theme.primary
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                     }
@@ -546,9 +544,9 @@ ColumnLayout {
                     background: Rectangle {
                         radius: 6
                         color: inputMuteBtn.isMuted 
-                            ? Theme.primary 
-                            : (inputMuteBtn.hovered ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.15) : "transparent")
-                        border.color: Theme.primary
+                            ? Theme.error_container 
+                            : (inputMuteBtn.hovered ? Theme.surface_container_highest : Theme.surface_container_high)
+                        border.color: Theme.outline_variant
                         border.width: 1
                     }
 
@@ -575,7 +573,7 @@ ColumnLayout {
                 Text {
                     text: "Select Input Device"
                     font.family: Theme.fontFamily
-                    font.pixelSize: 12
+                    font.pixelSize: 13
                     font.bold: true
                     color: Theme.primary
                 }
@@ -614,8 +612,8 @@ ColumnLayout {
                     }
 
                     background: Rectangle {
-                        color: Theme.background
-                        border.color: inputCombo.activeFocus || inputCombo.hovered ? Theme.primary : Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.6)
+                        color: Theme.surface_container_high
+                        border.color: inputCombo.activeFocus || inputCombo.hovered ? Theme.primary : Theme.outline_variant
                         radius: 8
                         border.width: 1
                     }
@@ -626,7 +624,7 @@ ColumnLayout {
                             : "Choose microphone..."
                         font.family: Theme.fontFamily
                         font.pixelSize: 13
-                        color: Theme.primary
+                        color: Theme.on_surface
                         verticalAlignment: Text.AlignVCenter
                         leftPadding: 12
                         rightPadding: 32
@@ -639,7 +637,7 @@ ColumnLayout {
                         anchors.verticalCenter: parent.verticalCenter
                         text: inputCombo.popup.visible ? "▲" : "▼"
                         font.pixelSize: 10
-                        color: Theme.primary
+                        color: Theme.on_surface_variant
                     }
 
                     popup: Popup {
@@ -657,8 +655,8 @@ ColumnLayout {
                         }
 
                         background: Rectangle {
-                            color: Theme.background
-                            border.color: Theme.primary
+                            color: Theme.surface_container_high
+                            border.color: Theme.outline_variant
                             border.width: 1
                             radius: 8
                         }
@@ -678,7 +676,7 @@ ColumnLayout {
                         contentItem: Text {
                             text: modelData
                             font.family: Theme.fontFamily
-                            color: highlighted ? Theme.on_primary : Theme.primary
+                            color: highlighted ? Theme.on_primary : (inputCombo.currentIndex === index ? Theme.primary : Theme.on_surface)
                             font.pixelSize: 13
                             font.bold: inputCombo.currentIndex === index
                             verticalAlignment: Text.AlignVCenter
@@ -688,7 +686,7 @@ ColumnLayout {
                         }
 
                         background: Rectangle {
-                            color: highlighted ? Theme.primary : (inputCombo.currentIndex === index ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.15) : "transparent")
+                            color: highlighted ? Theme.primary : (inputCombo.currentIndex === index ? Theme.surface_container_highest : "transparent")
                             radius: 4
                         }
                         highlighted: inputCombo.highlightedIndex === index
@@ -705,8 +703,8 @@ ColumnLayout {
         Layout.fillWidth: true
         Layout.preferredHeight: streamsColumn.implicitHeight + 32
         radius: 10
-        color: Theme.background
-        border.color: Theme.primary
+        color: Theme.surface_container
+        border.color: Theme.outline_variant
         border.width: 1
 
         ColumnLayout {
@@ -720,15 +718,14 @@ ColumnLayout {
                 font.family: Theme.fontFamily
                 font.pixelSize: 15
                 font.bold: true
-                color: Theme.primary
+                color: Theme.on_surface
             }
 
             Text {
                 text: "Granular playback levels for active media and application audio streams."
                 font.family: Theme.fontFamily
-                font.pixelSize: 12
-                color: Theme.on_background
-                opacity: 0.8
+                font.pixelSize: 13
+                color: Theme.on_surface_variant
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
             }
@@ -738,8 +735,7 @@ ColumnLayout {
                 text: "No active application audio streams currently playing."
                 font.family: Theme.fontFamily
                 font.pixelSize: 13
-                color: Theme.on_background
-                opacity: 0.6
+                color: Theme.on_surface_variant
                 visible: root.streamNodes.length === 0
                 Layout.topMargin: 8
                 Layout.bottomMargin: 8
@@ -756,8 +752,8 @@ ColumnLayout {
                     Layout.fillWidth: true
                     Layout.preferredHeight: streamRow.implicitHeight + 16
                     radius: 8
-                    color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.05)
-                    border.color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.25)
+                    color: Theme.surface_container_high
+                    border.color: Theme.outline_variant
                     border.width: 1
 
                     ColumnLayout {
@@ -779,7 +775,7 @@ ColumnLayout {
                                 font.family: Theme.fontFamily
                                 font.pixelSize: 13
                                 font.bold: true
-                                color: Theme.primary
+                                color: Theme.on_surface
                                 elide: Text.ElideRight
                                 Layout.fillWidth: true
                             }
@@ -791,7 +787,7 @@ ColumnLayout {
                                     return Math.round(modelData.audio.volume * 100) + "%";
                                 }
                                 font.family: Theme.fontFamily
-                                font.pixelSize: 11
+                                font.pixelSize: 12
                                 font.bold: true
                                 color: Theme.primary
                             }
@@ -824,8 +820,8 @@ ColumnLayout {
                                     width: streamSlider.availableWidth
                                     height: implicitHeight
                                     radius: 2
-                                    color: Theme.background
-                                    border.color: Theme.primary
+                                    color: Theme.surface_container_highest
+                                    border.color: Theme.outline_variant
                                     border.width: 1
 
                                     Rectangle {
@@ -842,8 +838,8 @@ ColumnLayout {
                                     implicitWidth: 14
                                     implicitHeight: 14
                                     radius: 7
-                                    color: streamSlider.pressed ? Theme.background : Theme.primary
-                                    border.color: Theme.primary
+                                    color: streamSlider.pressed ? Theme.on_primary : Theme.primary
+                                    border.color: Theme.outline_variant
                                     border.width: 1
 
                                     MouseArea {
@@ -867,7 +863,7 @@ ColumnLayout {
                                     font.family: Theme.fontFamily
                                     font.pixelSize: 11
                                     font.bold: true
-                                    color: streamMuteBtn.isMuted ? Theme.on_primary : Theme.primary
+                                    color: streamMuteBtn.isMuted ? Theme.on_error_container : Theme.primary
                                     horizontalAlignment: Text.AlignHCenter
                                     verticalAlignment: Text.AlignVCenter
                                 }
@@ -875,9 +871,9 @@ ColumnLayout {
                                 background: Rectangle {
                                     radius: 5
                                     color: streamMuteBtn.isMuted 
-                                        ? Theme.primary 
-                                        : (streamMuteBtn.hovered ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.15) : "transparent")
-                                    border.color: Theme.primary
+                                        ? Theme.error_container 
+                                        : (streamMuteBtn.hovered ? Theme.surface_container_highest : Theme.surface_container_low)
+                                    border.color: Theme.outline_variant
                                     border.width: 1
                                 }
 
@@ -912,4 +908,3 @@ ColumnLayout {
         onClicked: Quickshell.execDetached(["pavucontrol"])
     }
 }
-

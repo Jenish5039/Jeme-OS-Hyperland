@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
-import qs.CustomTheme
+import "../../CustomTheme"
 import "../components"
 
 ColumnLayout {
@@ -52,8 +52,8 @@ ColumnLayout {
     Rectangle {
         Layout.fillWidth: true
         Layout.preferredHeight: infoColumn.implicitHeight + 28
-        color: Theme.background
-        border.color: Theme.primary
+        color: Theme.surface_container
+        border.color: Theme.outline_variant
         border.width: 1
         radius: 10
         Layout.topMargin: 10
@@ -75,9 +75,8 @@ ColumnLayout {
             Text {
                 text: "• Daemon: awww (active Wayland wallpaper engine)\n• Theming: Matugen dynamic Material 3 color generation\n• Storage: ~/Pictures/Wallpapers"
                 font.family: Theme.fontFamily
-                font.pixelSize: 12
-                color: Theme.on_background
-                opacity: 0.8
+                font.pixelSize: 13
+                color: Theme.on_surface_variant
                 lineHeight: 1.3
             }
         }

@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
-import qs.CustomTheme
+import "../../CustomTheme"
 
 Rectangle {
     id: root
@@ -14,8 +14,11 @@ Rectangle {
     radius: 8
 
     color: active 
-        ? Theme.primary 
-        : (mouseArea.containsMouse ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.12) : "transparent")
+        ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.22)
+        : (mouseArea.containsMouse ? Theme.surface_container_high : "transparent")
+
+    border.color: active ? Theme.primary : "transparent"
+    border.width: active ? 1 : 0
 
     Behavior on color { ColorAnimation { duration: 120 } }
 
@@ -30,7 +33,7 @@ Rectangle {
             font.family: Theme.fontFamily
             font.pixelSize: 14
             font.bold: root.active
-            color: root.active ? Theme.on_primary : Theme.on_background
+            color: root.active ? Theme.primary : Theme.on_surface
             Layout.fillWidth: true
             Layout.alignment: Qt.AlignVCenter
             elide: Text.ElideRight

@@ -4,7 +4,7 @@ import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
-import qs.CustomTheme
+import "../../CustomTheme"
 import "../components"
 
 ColumnLayout {
@@ -34,8 +34,8 @@ ColumnLayout {
         Layout.fillWidth: true
         Layout.preferredHeight: 160
         implicitHeight: 160
-        color: Theme.background
-        border.color: Theme.primary
+        color: Theme.surface_container
+        border.color: Theme.outline_variant
         border.width: 1
         radius: 12
 
@@ -64,22 +64,22 @@ ColumnLayout {
                     font.family: Theme.fontFamily
                     font.pixelSize: 24
                     font.bold: true
-                    color: Theme.on_background
+                    color: Theme.on_surface
                 }
 
                 Text {
                     text: "Version 2.15.1 — Fedora Linux • Hyprland • Quickshell"
                     font.family: Theme.fontFamily
                     font.pixelSize: 13
+                    font.bold: true
                     color: Theme.primary
                 }
 
                 Text {
                     text: "Unified system control center. Configure appearance, window rules, displays, and desktop defaults in one place."
                     font.family: Theme.fontFamily
-                    font.pixelSize: 12
-                    color: Theme.on_background
-                    opacity: 0.75
+                    font.pixelSize: 13
+                    color: Theme.on_surface_variant
                     wrapMode: Text.WordWrap
                     Layout.fillWidth: true
                 }
@@ -93,7 +93,7 @@ ColumnLayout {
         font.family: Theme.fontFamily
         font.pixelSize: 16
         font.bold: true
-        color: Theme.on_background
+        color: Theme.primary
         Layout.topMargin: 5
     }
 
@@ -106,9 +106,12 @@ ColumnLayout {
             Layout.fillWidth: true
             Layout.preferredHeight: 50
             radius: 8
-            color: Theme.background
-            border.color: Theme.primary
+            color: mouseAreaHyprMod.containsMouse ? Theme.surface_container_highest : Theme.surface_container_high
+            border.color: mouseAreaHyprMod.containsMouse ? Theme.primary : Theme.outline_variant
             border.width: 1
+
+            Behavior on color { ColorAnimation { duration: 150 } }
+            Behavior on border.color { ColorAnimation { duration: 150 } }
 
             RowLayout {
                 anchors.fill: parent
@@ -127,6 +130,7 @@ ColumnLayout {
             }
 
             MouseArea {
+                id: mouseAreaHyprMod
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
@@ -145,9 +149,12 @@ ColumnLayout {
             Layout.fillWidth: true
             Layout.preferredHeight: 50
             radius: 8
-            color: Theme.background
-            border.color: Theme.primary
+            color: mouseAreaDisplays.containsMouse ? Theme.surface_container_highest : Theme.surface_container_high
+            border.color: mouseAreaDisplays.containsMouse ? Theme.primary : Theme.outline_variant
             border.width: 1
+
+            Behavior on color { ColorAnimation { duration: 150 } }
+            Behavior on border.color { ColorAnimation { duration: 150 } }
 
             RowLayout {
                 anchors.fill: parent
@@ -166,6 +173,7 @@ ColumnLayout {
             }
 
             MouseArea {
+                id: mouseAreaDisplays
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
@@ -178,9 +186,12 @@ ColumnLayout {
             Layout.fillWidth: true
             Layout.preferredHeight: 50
             radius: 8
-            color: Theme.background
-            border.color: Theme.primary
+            color: mouseAreaTheme.containsMouse ? Theme.surface_container_highest : Theme.surface_container_high
+            border.color: mouseAreaTheme.containsMouse ? Theme.primary : Theme.outline_variant
             border.width: 1
+
+            Behavior on color { ColorAnimation { duration: 150 } }
+            Behavior on border.color { ColorAnimation { duration: 150 } }
 
             RowLayout {
                 anchors.fill: parent
@@ -199,6 +210,7 @@ ColumnLayout {
             }
 
             MouseArea {
+                id: mouseAreaTheme
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
@@ -211,9 +223,12 @@ ColumnLayout {
             Layout.fillWidth: true
             Layout.preferredHeight: 50
             radius: 8
-            color: Theme.background
-            border.color: Theme.primary
+            color: mouseAreaWallpaper.containsMouse ? Theme.surface_container_highest : Theme.surface_container_high
+            border.color: mouseAreaWallpaper.containsMouse ? Theme.primary : Theme.outline_variant
             border.width: 1
+
+            Behavior on color { ColorAnimation { duration: 150 } }
+            Behavior on border.color { ColorAnimation { duration: 150 } }
 
             RowLayout {
                 anchors.fill: parent
@@ -232,6 +247,7 @@ ColumnLayout {
             }
 
             MouseArea {
+                id: mouseAreaWallpaper
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
@@ -246,15 +262,15 @@ ColumnLayout {
         font.family: Theme.fontFamily
         font.pixelSize: 16
         font.bold: true
-        color: Theme.on_background
+        color: Theme.primary
         Layout.topMargin: 10
     }
 
     Rectangle {
         Layout.fillWidth: true
         Layout.preferredHeight: keybindColumn.implicitHeight + 36
-        color: Theme.background
-        border.color: Theme.primary
+        color: Theme.surface_container
+        border.color: Theme.outline_variant
         border.width: 1
         radius: 10
 
@@ -272,6 +288,7 @@ ColumnLayout {
                     ListElement { keys: "Super + CTRL + Enter"; desc: "Open application launcher" }
                     ListElement { keys: "Super + CTRL + S"; desc: "Open desktop sidebar" }
                     ListElement { keys: "Super + CTRL + W"; desc: "Open wallpaper selector" }
+                    ListElement { keys: "Super + ,"; desc: "Open Settings" }
                 }
 
                 delegate: RowLayout {
@@ -280,9 +297,11 @@ ColumnLayout {
 
                     Rectangle {
                         Layout.preferredWidth: 160
-                        Layout.preferredHeight: 26
+                        Layout.preferredHeight: 28
                         radius: 6
-                        color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.12)
+                        color: Theme.surface_container_highest
+                        border.color: Theme.outline_variant
+                        border.width: 1
 
                         Text {
                             anchors.centerIn: parent
@@ -298,20 +317,21 @@ ColumnLayout {
                         text: model.desc
                         font.family: Theme.fontFamily
                         font.pixelSize: 13
-                        color: Theme.on_background
+                        color: Theme.on_surface
                         Layout.fillWidth: true
                     }
                 }
             }
 
             Button {
+                id: allKeybindsBtn
                 Layout.alignment: Qt.AlignRight
                 Layout.topMargin: 8
                 text: "All Keybindings..."
                 hoverEnabled: true
 
                 contentItem: Text {
-                    text: parent.text
+                    text: allKeybindsBtn.text
                     font.family: Theme.fontFamily
                     font.pixelSize: 12
                     font.bold: true
@@ -326,8 +346,8 @@ ColumnLayout {
 
                 background: Rectangle {
                     radius: 6
-                    color: parent.hovered ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.15) : "transparent"
-                    border.color: Theme.primary
+                    color: allKeybindsBtn.hovered ? Theme.surface_container_highest : Theme.surface_container_high
+                    border.color: Theme.outline_variant
                     border.width: 1
                 }
 
@@ -350,7 +370,7 @@ ColumnLayout {
         font.family: Theme.fontFamily
         font.pixelSize: 16
         font.bold: true
-        color: Theme.on_background
+        color: Theme.primary
         Layout.topMargin: 10
     }
 
@@ -400,8 +420,8 @@ ColumnLayout {
                     implicitWidth: 48
                     implicitHeight: 26
                     radius: 13
-                    color: autostartSwitch.checked ? Theme.primary : Theme.background
-                    border.color: Theme.primary
+                    color: autostartSwitch.checked ? Theme.primary : Theme.surface_container_highest
+                    border.color: autostartSwitch.checked ? Theme.primary : Theme.outline
                     border.width: 1
 
                     anchors.verticalCenter: parent.verticalCenter
@@ -412,7 +432,7 @@ ColumnLayout {
                         width: 22
                         height: 22
                         radius: 11
-                        color: autostartSwitch.checked ? Theme.background : Theme.on_primary
+                        color: autostartSwitch.checked ? Theme.on_primary : Theme.outline
                         Behavior on x { NumberAnimation { duration: 150 } }
                     }
                 }

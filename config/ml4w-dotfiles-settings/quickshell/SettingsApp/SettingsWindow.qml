@@ -3,7 +3,7 @@ import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
-import qs.CustomTheme
+import "../CustomTheme"
 import "components"
 import "pages"
 
@@ -91,7 +91,7 @@ FloatingWindow {
         Rectangle {
             Layout.preferredWidth: 230
             Layout.fillHeight: true
-            color: Theme.background
+            color: Theme.surface_container_low
 
             ColumnLayout {
                 anchors.fill: parent
@@ -120,7 +120,7 @@ FloatingWindow {
                         font.family: Theme.fontFamily
                         font.pixelSize: 18
                         font.bold: true
-                        color: Theme.on_background
+                        color: Theme.on_surface
                         Layout.alignment: Qt.AlignVCenter
                     }
                 }
@@ -129,8 +129,7 @@ FloatingWindow {
                 Rectangle {
                     Layout.fillWidth: true
                     implicitHeight: 1
-                    color: Theme.primary
-                    opacity: 0.25
+                    color: Theme.outline_variant
                 }
 
                 // Scrollable Navigation List
@@ -146,7 +145,7 @@ FloatingWindow {
                             implicitWidth: 4
                             radius: 2
                             color: Theme.primary
-                            opacity: parent.pressed ? 1.0 : (parent.active ? 0.7 : 0.3)
+                            opacity: parent.pressed ? 1.0 : (parent.active ? 0.8 : 0.4)
                         }
                     }
 
@@ -171,26 +170,27 @@ FloatingWindow {
                     Layout.fillWidth: true
                     implicitHeight: 32
                     radius: 6
-                    color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.08)
+                    color: Theme.surface_container_high
+                    border.color: Theme.outline_variant
+                    border.width: 1
 
                     Text {
                         anchors.centerIn: parent
                         text: "Jeme OS 2.15.1"
                         font.family: Theme.fontFamily
                         font.pixelSize: 11
+                        font.bold: true
                         color: Theme.primary
-                        opacity: 0.8
                     }
                 }
             }
         }
 
-        // Subtle vertical separator between sidebar and main content
+        // Vertical separator between sidebar and main content
         Rectangle {
             Layout.preferredWidth: 1
             Layout.fillHeight: true
-            color: Theme.primary
-            opacity: 0.15
+            color: Theme.outline_variant
         }
 
         // ==========================================

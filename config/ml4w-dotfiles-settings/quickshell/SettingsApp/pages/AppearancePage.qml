@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
-import qs.CustomTheme
+import "../../CustomTheme"
 import "../components"
 
 ColumnLayout {
@@ -24,7 +24,7 @@ ColumnLayout {
         font.family: Theme.fontFamily
         font.pixelSize: 16
         font.bold: true
-        color: Theme.on_background
+        color: Theme.primary
         Layout.topMargin: 5
     }
 
@@ -54,7 +54,7 @@ ColumnLayout {
         font.family: Theme.fontFamily
         font.pixelSize: 16
         font.bold: true
-        color: Theme.on_background
+        color: Theme.primary
         Layout.topMargin: 15
     }
 
@@ -103,7 +103,7 @@ ColumnLayout {
         font.family: Theme.fontFamily
         font.pixelSize: 16
         font.bold: true
-        color: Theme.on_background
+        color: Theme.primary
         Layout.topMargin: 15
     }
 

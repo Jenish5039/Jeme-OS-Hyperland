@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
-import qs.CustomTheme
+import "../../CustomTheme"
 
 Rectangle {
     id: root
@@ -12,8 +12,8 @@ Rectangle {
     implicitWidth: 500
     implicitHeight: Math.max(76, contentRow.implicitHeight + 24)
     radius: 10
-    color: Theme.background
-    border.color: Theme.primary
+    color: Theme.surface_container
+    border.color: Theme.outline_variant
     border.width: 1
 
     RowLayout {
@@ -31,7 +31,7 @@ Rectangle {
                 font.family: Theme.fontFamily
                 font.pixelSize: 15
                 font.bold: true
-                color: Theme.primary
+                color: Theme.on_surface
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
             }
@@ -39,9 +39,8 @@ Rectangle {
             Text {
                 text: root.instructions
                 font.family: Theme.fontFamily
-                font.pixelSize: 12
-                color: Theme.on_background
-                opacity: 0.8
+                font.pixelSize: 13
+                color: Theme.on_surface_variant
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
                 visible: root.instructions !== ""

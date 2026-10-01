@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
-import qs.CustomTheme
+import "../../CustomTheme"
 import "../components"
 
 ColumnLayout {
@@ -19,8 +19,8 @@ ColumnLayout {
     Rectangle {
         Layout.fillWidth: true
         Layout.preferredHeight: 140
-        color: Theme.background
-        border.color: Theme.primary
+        color: Theme.surface_container
+        border.color: Theme.outline_variant
         border.width: 1
         radius: 10
 
@@ -49,22 +49,22 @@ ColumnLayout {
                     font.family: Theme.fontFamily
                     font.pixelSize: 22
                     font.bold: true
-                    color: Theme.on_background
+                    color: Theme.on_surface
                 }
 
                 Text {
                     text: "Version 2.15.1"
                     font.family: Theme.fontFamily
                     font.pixelSize: 13
+                    font.bold: true
                     color: Theme.primary
                 }
 
                 Text {
                     text: "An intentional, keyboard-driven Linux desktop rice combining the speed of Hyprland with reactive Quickshell widgets and Matugen dynamic color synchronization."
                     font.family: Theme.fontFamily
-                    font.pixelSize: 12
-                    color: Theme.on_background
-                    opacity: 0.75
+                    font.pixelSize: 13
+                    color: Theme.on_surface_variant
                     wrapMode: Text.WordWrap
                     Layout.fillWidth: true
                 }
@@ -77,15 +77,15 @@ ColumnLayout {
         font.family: Theme.fontFamily
         font.pixelSize: 16
         font.bold: true
-        color: Theme.on_background
+        color: Theme.primary
         Layout.topMargin: 5
     }
 
     Rectangle {
         Layout.fillWidth: true
         Layout.preferredHeight: stackColumn.implicitHeight + 28
-        color: Theme.background
-        border.color: Theme.primary
+        color: Theme.surface_container
+        border.color: Theme.outline_variant
         border.width: 1
         radius: 10
 
@@ -123,7 +123,7 @@ ColumnLayout {
                         text: model.val
                         font.family: Theme.fontFamily
                         font.pixelSize: 13
-                        color: Theme.on_background
+                        color: Theme.on_surface
                         Layout.fillWidth: true
                     }
                 }

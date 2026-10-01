@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
-import qs.CustomTheme
+import "../../CustomTheme"
 import "../components"
 
 ColumnLayout {
@@ -50,8 +50,8 @@ ColumnLayout {
     Rectangle {
         Layout.fillWidth: true
         Layout.preferredHeight: infoColumn.implicitHeight + 28
-        color: Theme.background
-        border.color: Theme.primary
+        color: Theme.surface_container
+        border.color: Theme.outline_variant
         border.width: 1
         radius: 10
         Layout.topMargin: 10
@@ -73,9 +73,8 @@ ColumnLayout {
             Text {
                 text: "• Profile: " + root.dotfilesId + "\n• Base Location: ~/.mydotfiles/com.ml4w.dotfiles\n• Config Symlinks: ~/.config/hypr, ~/.config/ml4w, ~/.config/quickshell"
                 font.family: Theme.fontFamily
-                font.pixelSize: 12
-                color: Theme.on_background
-                opacity: 0.8
+                font.pixelSize: 13
+                color: Theme.on_surface_variant
                 lineHeight: 1.4
             }
         }

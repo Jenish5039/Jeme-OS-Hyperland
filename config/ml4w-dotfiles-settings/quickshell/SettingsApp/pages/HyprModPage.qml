@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
-import qs.CustomTheme
+import "../../CustomTheme"
 import "../components"
 
 ColumnLayout {
@@ -32,8 +32,8 @@ ColumnLayout {
     Rectangle {
         Layout.fillWidth: true
         Layout.preferredHeight: 72
-        color: Theme.background
-        border.color: Theme.primary
+        color: Theme.surface_container
+        border.color: Theme.outline_variant
         border.width: 1
         radius: 10
 
@@ -68,7 +68,7 @@ ColumnLayout {
                     font.family: Theme.fontFamily
                     font.pixelSize: 15
                     font.bold: true
-                    color: Theme.on_background
+                    color: Theme.on_surface
                 }
 
                 Text {
@@ -76,9 +76,8 @@ ColumnLayout {
                         ? "Installed at ~/.local/bin/hyprmod. Click below to launch the interface." 
                         : "HyprMod can be installed to provide deeper graphical Hyprland customization."
                     font.family: Theme.fontFamily
-                    font.pixelSize: 12
-                    color: Theme.on_background
-                    opacity: 0.75
+                    font.pixelSize: 13
+                    color: Theme.on_surface_variant
                 }
             }
         }
@@ -103,8 +102,8 @@ ColumnLayout {
     Rectangle {
         Layout.fillWidth: true
         Layout.preferredHeight: featuresColumn.implicitHeight + 28
-        color: Theme.background
-        border.color: Theme.primary
+        color: Theme.surface_container
+        border.color: Theme.outline_variant
         border.width: 1
         radius: 10
         Layout.topMargin: 10
@@ -126,9 +125,8 @@ ColumnLayout {
             Text {
                 text: "• Window Rules: Visual builder for floating, opacity, size, and pinning rules\n• Animations & Bezier Curves: Live preview of animation curves\n• Keybinding Editor: Modify and assign custom dispatcher hotkeys\n• Monitor Layouts: Fine-tune monitor position, scale, and transform parameters"
                 font.family: Theme.fontFamily
-                font.pixelSize: 12
-                color: Theme.on_background
-                opacity: 0.8
+                font.pixelSize: 13
+                color: Theme.on_surface_variant
                 lineHeight: 1.4
             }
         }
