@@ -6,7 +6,7 @@ import QtQuick.Layouts
 import QtQuick.Effects
 import qs.CustomTheme
 
-// Media-Centric Status Bar Module with Fluid Transitions, Spring Micro-Interactions & CAVA Spectrum
+// Media-Centric Status Bar Module with Always-Visible CAVA Spectrum & Fluid Transitions
 Rectangle {
     id: root
 
@@ -127,7 +127,7 @@ Rectangle {
             "/home/zane/.local/bin/cava",
             "-p", Quickshell.env("HOME") + "/.config/cava/quickshell.conf"
         ]
-        running: root.isPlaying && !root.collapsed
+        running: !root.collapsed
 
         stdout: SplitParser {
             splitMarker: "\n"
@@ -278,24 +278,23 @@ Rectangle {
             }
         }
 
-        // Fixed-dimension CAVA spectrum container with Fluid Bar Motion
+        // Fixed-dimension CAVA spectrum container (Always visible while player is visible)
         Item {
-            id: barsContainer
+            id: compactBarsContainer
             Layout.alignment: Qt.AlignVCenter
             implicitWidth: root.totalBarsWidth
             implicitHeight: root.maxBarHeight
             width: root.totalBarsWidth
             height: root.maxBarHeight
-            opacity: root.isPlaying ? 1.0 : 0.0
-            visible: opacity > 0.01
+            opacity: root.isPlaying ? 1.0 : 0.50
             clip: true
 
             Behavior on opacity {
-                NumberAnimation { duration: 280; easing.type: Easing.OutCubic }
+                NumberAnimation { duration: 300; easing.type: Easing.OutCubic }
             }
 
             Row {
-                id: barsRow
+                id: compactBarsRow
                 anchors.bottom: parent.bottom
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: root.barSpacing
@@ -361,7 +360,7 @@ Rectangle {
         // Track Title (Single bold title, no artist)
         Text {
             Layout.alignment: Qt.AlignVCenter
-            Layout.maximumWidth: 130
+            Layout.maximumWidth: 120
             text: root.trackTitle
             color: Theme.primary
             font.family: Theme.fontFamily
@@ -471,6 +470,47 @@ Rectangle {
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: root.nextTrack()
+                }
+            }
+        }
+
+        // Expanded View CAVA Spectrum (Always visible while player is visible)
+        Item {
+            id: expandedBarsContainer
+            Layout.alignment: Qt.AlignVCenter
+            implicitWidth: root.totalBarsWidth
+            implicitHeight: root.maxBarHeight
+            width: root.totalBarsWidth
+            height: root.maxBarHeight
+            opacity: root.isPlaying ? 1.0 : 0.50
+            clip: true
+
+            Behavior on opacity {
+                NumberAnimation { duration: 300; easing.type: Easing.OutCubic }
+            }
+
+            Row {
+                id: expandedBarsRow
+                anchors.bottom: parent.bottom
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: root.barSpacing
+
+                Repeater {
+                    model: root.barCount
+                    Rectangle {
+                        required property int index
+                        anchors.bottom: parent.bottom
+                        width: root.barWidth
+                        radius: root.barRadius
+                        color: Theme.primary
+                        height: (root.rawValues && root.rawValues[index] !== undefined && root.isPlaying)
+                            ? Math.max(root.minBarHeight, Math.min(root.maxBarHeight, (root.rawValues[index] / root.visualPeak) * root.maxBarHeight))
+                            : root.minBarHeight
+
+                        Behavior on height {
+                            NumberAnimation { duration: 45; easing.type: Easing.OutQuad }
+                        }
+                    }
                 }
             }
         }
