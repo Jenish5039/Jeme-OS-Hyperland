@@ -6,7 +6,7 @@ import QtQuick.Layouts
 import QtQuick.Effects
 import qs.CustomTheme
 
-// Media-Centric Status Bar Module with CAVA Spectrum & Interactive Micro-Expansion
+// Media-Centric Status Bar Module with Stable CAVA Spectrum & Interactive Micro-Expansion
 Rectangle {
     id: root
 
@@ -47,7 +47,7 @@ Rectangle {
     }
 
     implicitHeight: 28
-    implicitWidth: collapsed ? 0 : (isExpanded ? (expandedContent.implicitWidth + 16) : (compactContent.implicitWidth + 14))
+    implicitWidth: collapsed ? 0 : (isExpanded ? (expandedContent.implicitWidth + 16) : (compactContent.implicitWidth + 12))
     radius: 14
     color: (mediaMouse.containsMouse || root.focused) ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.12) : "transparent"
     border.color: (mediaMouse.containsMouse || root.focused) ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.30) : "transparent"
@@ -62,15 +62,16 @@ Rectangle {
         ColorAnimation { duration: 300; easing.type: Easing.OutQuint }
     }
 
-    // --- CAVA REAL-TIME SPECTRUM INTEGRATION ---
-    readonly property int barCount: 10
+    // --- CAVA REAL-TIME SPECTRUM INTEGRATION (16 BARS STEREO) ---
+    readonly property int barCount: 16
     readonly property real minBarHeight: 2.0
     readonly property real maxBarHeight: 14.0
-    readonly property real barWidth: 2.5
-    readonly property real barRadius: 1.25
-    readonly property real barSpacing: 2.0
+    readonly property real barWidth: 2.0
+    readonly property real barRadius: 1.0
+    readonly property real barSpacing: 1.5
+    readonly property real totalBarsWidth: (barWidth * barCount) + (barSpacing * (barCount - 1))
     property real visualPeak: 50.0
-    property var rawValues: [0,0,0,0,0,0,0,0,0,0]
+    property var rawValues: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 
     Process {
         id: cavaProc
@@ -147,7 +148,7 @@ Rectangle {
         // Title
         Text {
             Layout.alignment: Qt.AlignVCenter
-            Layout.maximumWidth: 110
+            Layout.maximumWidth: 100
             text: root.trackTitle
             color: Theme.primary
             font.family: Theme.fontFamily
@@ -170,7 +171,7 @@ Rectangle {
         // Artist
         Text {
             Layout.alignment: Qt.AlignVCenter
-            Layout.maximumWidth: 85
+            Layout.maximumWidth: 75
             text: root.trackArtist
             color: Theme.on_background
             font.family: Theme.fontFamily
@@ -213,24 +214,35 @@ Rectangle {
             }
         }
 
-        // CAVA spectrum bars
-        Row {
-            id: cavaBars
+        // Fixed-dimension CAVA spectrum container to prevent any layout vibration
+        Item {
+            id: barsContainer
             Layout.alignment: Qt.AlignVCenter
-            spacing: root.barSpacing
+            implicitWidth: root.totalBarsWidth
+            implicitHeight: root.maxBarHeight
+            width: root.totalBarsWidth
+            height: root.maxBarHeight
             visible: root.isPlaying
+            clip: true
 
-            Repeater {
-                model: root.barCount
-                Rectangle {
-                    required property int index
-                    anchors.bottom: parent.bottom
-                    width: root.barWidth
-                    radius: root.barRadius
-                    color: Theme.primary
-                    height: (root.rawValues && root.rawValues[index] !== undefined && root.isPlaying)
-                        ? Math.max(root.minBarHeight, Math.min(root.maxBarHeight, (root.rawValues[index] / root.visualPeak) * root.maxBarHeight))
-                        : root.minBarHeight
+            Row {
+                id: barsRow
+                anchors.bottom: parent.bottom
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: root.barSpacing
+
+                Repeater {
+                    model: root.barCount
+                    Rectangle {
+                        required property int index
+                        anchors.bottom: parent.bottom
+                        width: root.barWidth
+                        radius: root.barRadius
+                        color: Theme.primary
+                        height: (root.rawValues && root.rawValues[index] !== undefined && root.isPlaying)
+                            ? Math.max(root.minBarHeight, Math.min(root.maxBarHeight, (root.rawValues[index] / root.visualPeak) * root.maxBarHeight))
+                            : root.minBarHeight
+                    }
                 }
             }
         }
