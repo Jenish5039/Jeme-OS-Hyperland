@@ -48,9 +48,9 @@ PanelWindow {
     readonly property var defaultSettings: ({
         "bar":    { "height": 38, "reservedHeight": 50, "enabled": true, "alwaysExpanded": true },
         "pill":   { "collapsedWidth": 0, "expandedWidth": 0.94, "radius": 12, "animationDuration": 350 },
-        "modules":{ "left": ["workspaces", "terminal", "clipboard", "cava"],
+        "modules":{ "left": ["workspaces", "terminal", "cava"],
                     "center": ["launcher", "clock", "swaync"],
-                    "right": ["updates", "battery", "powerprofile", "volume", "systemtray", "logo", "power"] },
+                    "right": ["updates", "clipboard", "battery", "powerprofile", "volume", "systemtray", "logo", "power"] },
         "border": { "width": 1.5, "colorTop": "", "colorBottom": "" },
         "opacity":{ "collapsed": 0.6, "expanded": 0.85 },
         "clock":  { "format": "HH:mm", "dateFormat": "ddd, dd MMM" },
