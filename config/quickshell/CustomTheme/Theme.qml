@@ -66,6 +66,16 @@ QtObject {
     property color tertiary_fixed: "#f9e0a6"
     property color tertiary_fixed_dim: "#dcc48c"
 
+    // Glass HUD Surface Tokens
+    readonly property real glassAlpha: 0.72
+    readonly property real glassBorderAlpha: 0.25
+    readonly property real glassHoverBorderAlpha: 0.45
+    readonly property color glassBackground: Qt.rgba(root.background.r, root.background.g, root.background.b, glassAlpha)
+    readonly property color glassBorder: Qt.rgba(root.primary.r, root.primary.g, root.primary.b, glassBorderAlpha)
+    readonly property color glassHoverBorder: Qt.rgba(root.primary.r, root.primary.g, root.primary.b, glassHoverBorderAlpha)
+    readonly property color glassCardBackground: Qt.rgba(root.primary.r, root.primary.g, root.primary.b, 0.08)
+    readonly property color glassCardBorder: Qt.rgba(root.primary.r, root.primary.g, root.primary.b, 0.20)
+
     property var themeReader: Process {
         id: reader
         command: ["cat", Quickshell.env("HOME") + "/.config/ml4w/colors/colors.json"]

@@ -391,29 +391,31 @@ PanelWindow {
             id: shadow
             anchors.fill: mainBgRect
             radius: mainBgRect.radius
-            blur: 15
-            color: Qt.rgba(Theme.shadow.r, Theme.shadow.g, Theme.shadow.b, 0.4)
+            blur: 18
+            color: Qt.rgba(Theme.shadow.r, Theme.shadow.g, Theme.shadow.b, 0.42)
         }
 
         Rectangle {
             id: mainBgRect
             anchors.fill: parent
-            radius: 12
-            opacity: 0.95
+            radius: 14
+            color: Theme.glassBackground
+            border.color: Theme.glassBorder
+            border.width: 1
+            clip: true
 
-            // Gradient outer border
-            gradient: Gradient {
-                orientation: Gradient.Vertical
-                GradientStop { position: 0.0; color: Theme.primary }
-                GradientStop { position: 1.0; color: Theme.on_primary }
-            }
-
-            // Inset background fill
+            // Top specular glass rim reflection
             Rectangle {
-                anchors.fill: parent
-                anchors.margins: 2
-                radius: parent.radius - anchors.margins
-                color: Theme.background
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.margins: 1
+                height: 10
+                radius: parent.radius - 1
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.16) }
+                    GradientStop { position: 1.0; color: "transparent" }
+                }
             }
         }
 

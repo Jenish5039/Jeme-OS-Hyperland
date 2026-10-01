@@ -33,12 +33,25 @@ Item {
     Rectangle {
         id: menuBg
         anchors.fill: parent
-        // Same card style as the sidebar's context menus: flat background with
-        // a thin accent border.
-        radius: 8
-        color: Theme.background
+        radius: 10
+        color: Theme.glassBackground
         border.width: 1
-        border.color: Theme.primary
+        border.color: Theme.glassBorder
+        clip: true
+
+        // Top specular glass rim reflection
+        Rectangle {
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.margins: 1
+            height: 6
+            radius: parent.radius - 1
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.16) }
+                GradientStop { position: 1.0; color: "transparent" }
+            }
+        }
 
         Column {
             id: menuColumn

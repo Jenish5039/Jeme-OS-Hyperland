@@ -352,41 +352,32 @@ PanelWindow {
         RectangularShadow {
             anchors.fill: pillBg
             radius: pillBg.radius
-            blur: 15
-            color: Qt.rgba(Theme.shadow.r, Theme.shadow.g, Theme.shadow.b, 0.4)
+            blur: 18
+            color: Qt.rgba(Theme.shadow.r, Theme.shadow.g, Theme.shadow.b, 0.42)
         }
 
-        // Gradient BORDER layer (outer)
+        // Glass HUD Dock Pill
         Rectangle {
             id: pillBg
             anchors.fill: parent
             radius: root.settings.pill.radius
-            opacity: root.settings.opacity.normal
+            color: Theme.glassBackground
+            border.color: Theme.glassBorder
+            border.width: root.settings.border.width
+            clip: true
 
-            // Border colors come from the settings file; empty strings fall back
-            // to the dynamic wallpaper theme.
-            gradient: Gradient {
-                orientation: Gradient.Vertical
-                GradientStop {
-                    position: 0.0
-                    color: root.settings.border.colorTop !== ""
-                        ? root.settings.border.colorTop
-                        : Theme.primary
-                }
-                GradientStop {
-                    position: 1.0
-                    color: root.settings.border.colorBottom !== ""
-                        ? root.settings.border.colorBottom
-                        : Theme.on_primary
-                }
-            }
-
-            // Actual background fill (inner), inset by the border thickness
+            // Top specular glass rim reflection
             Rectangle {
-                anchors.fill: parent
-                anchors.margins: root.settings.border.width
-                radius: parent.radius - anchors.margins
-                color: Theme.background
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.margins: 1
+                height: Math.max(2, parent.radius * 0.75)
+                radius: parent.radius - 1
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.16) }
+                    GradientStop { position: 1.0; color: "transparent" }
+                }
             }
         }
 

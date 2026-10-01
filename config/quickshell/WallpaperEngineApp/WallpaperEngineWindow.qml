@@ -772,18 +772,32 @@ PanelWindow {
             anchors.fill: mainContainer
             radius: mainContainer.radius
             blur: 24
-            color: Qt.rgba(0, 0, 0, 0.6)
+            color: Qt.rgba(Theme.shadow.r, Theme.shadow.g, Theme.shadow.b, 0.45)
         }
 
         // Window Frame
         Rectangle {
             id: mainContainer
             anchors.fill: parent
-            radius: 12
+            radius: 14
             clip: true
-            color: Theme.background
-            border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.4)
+            color: Theme.glassBackground
+            border.color: Theme.glassBorder
             border.width: 1
+
+            // Top specular glass rim reflection
+            Rectangle {
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.margins: 1
+                height: 12
+                radius: parent.radius - 1
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.16) }
+                    GradientStop { position: 1.0; color: "transparent" }
+                }
+            }
 
             ColumnLayout {
                 anchors.fill: parent

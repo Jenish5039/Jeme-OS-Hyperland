@@ -69,7 +69,7 @@ FloatingWindow {
         }
     }
 
-    color: Theme.background
+    color: Theme.glassBackground
 
     ColumnLayout {
         anchors.fill: parent
@@ -82,8 +82,9 @@ FloatingWindow {
             Layout.fillWidth: true
             Layout.margins: 10
             background: Rectangle {
-                color: Theme.primary
-                border.color: Theme.primary
+                color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.12)
+                border.color: Theme.glassBorder
+                border.width: 1
                 radius: 8
             }
 
@@ -165,8 +166,8 @@ FloatingWindow {
                 }
                 background: Rectangle {
                     implicitWidth: 220
-                    color: Theme.background
-                    border.color: Theme.primary
+                    color: Theme.glassBackground
+                    border.color: Theme.glassBorder
                     border.width: 1
                     radius: 8
                 }
@@ -216,8 +217,8 @@ FloatingWindow {
 
                 background: Rectangle {
                     implicitWidth: 220
-                    color: Theme.background
-                    border.color: Theme.primary
+                    color: Theme.glassBackground
+                    border.color: Theme.glassBorder
                     border.width: 1
                     radius: 8
                 }
@@ -269,8 +270,9 @@ FloatingWindow {
 
                 background: Rectangle {
                     implicitWidth: 180
-                    color: Theme.background
-                    border.color: Theme.primary
+                    color: Theme.glassBackground
+                    border.color: Theme.glassBorder
+                    border.width: 1
                     radius: 8
                 }
             }

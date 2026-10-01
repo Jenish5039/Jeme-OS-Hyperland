@@ -131,29 +131,31 @@ PanelWindow {
             id: shadow
             anchors.fill: mainBgRect
             radius: mainBgRect.radius
-            blur: 15
-            color: Qt.rgba(Theme.shadow.r, Theme.shadow.g, Theme.shadow.b, 0.4)
+            blur: 18
+            color: Qt.rgba(Theme.shadow.r, Theme.shadow.g, Theme.shadow.b, 0.42)
         }
 
         Rectangle {
             id: mainBgRect
             anchors.fill: parent
             radius: 40
-            opacity: 0.9 // Only the background is transparent
+            color: Theme.glassBackground
+            border.color: Theme.glassBorder
+            border.width: 1
+            clip: true
 
-            // Gradient border (outer)
-            gradient: Gradient {
-                orientation: Gradient.Vertical
-                GradientStop { position: 0.0; color: Theme.primary }
-                GradientStop { position: 1.0; color: Theme.on_primary }
-            }
-
-            // Background fill (inner), inset by the border thickness
+            // Top specular glass rim reflection
             Rectangle {
-                anchors.fill: parent
-                anchors.margins: 2
-                radius: parent.radius - anchors.margins
-                color: Theme.background
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.margins: 1
+                height: 25
+                radius: parent.radius - 1
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.16) }
+                    GradientStop { position: 1.0; color: "transparent" }
+                }
             }
         }
 
@@ -178,9 +180,24 @@ PanelWindow {
                 implicitHeight: 50
                 radius: 25
 
-                color: (mouseArea.containsMouse || selected) ? Theme.primary : "transparent"
-                border.color: Theme.primary
+                color: (mouseArea.containsMouse || selected)
+                    ? Theme.primary
+                    : Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.10)
+                border.color: (mouseArea.containsMouse || selected)
+                    ? Theme.primary
+                    : Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.28)
                 border.width: 1
+
+                Behavior on color {
+                    ColorAnimation { duration: 200; easing.type: Easing.OutQuint }
+                }
+                Behavior on border.color {
+                    ColorAnimation { duration: 200; easing.type: Easing.OutQuint }
+                }
+                scale: mouseArea.pressed ? 0.90 : (mouseArea.containsMouse ? 1.10 : 1.0)
+                Behavior on scale {
+                    NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.4 }
+                }
 
                 Image {
                     id: btnIcon
