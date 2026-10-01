@@ -315,7 +315,7 @@ PanelWindow {
         width: leftRow.implicitWidth + 20
 
         Behavior on width {
-            NumberAnimation { duration: 320; easing.type: Easing.OutQuint }
+            NumberAnimation { duration: 380; easing.type: Easing.OutQuint }
         }
 
         RowLayout {
@@ -344,22 +344,11 @@ PanelWindow {
                 onLoaded: Qt.callLater(root.rebuildNavItems)
             }
 
-            // Divider separating terminal from media (only when media is playing)
-            Rectangle {
-                Layout.alignment: Qt.AlignVCenter
-                width: 1
-                height: 16
-                color: Theme.outline_variant
-                opacity: 0.35
-                visible: mediaLoader.item && !mediaLoader.item.collapsed
-            }
-
-            // Media Player + CAVA Section (moved to the left next to terminal)
+            // Media Player + CAVA Section (smooth integrated loader)
             Loader {
                 id: mediaLoader
                 Layout.alignment: Qt.AlignVCenter
                 sourceComponent: cMedia
-                visible: item && !item.collapsed
                 onLoaded: Qt.callLater(root.rebuildNavItems)
             }
         }

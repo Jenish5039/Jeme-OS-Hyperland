@@ -6,7 +6,7 @@ import QtQuick.Layouts
 import QtQuick.Effects
 import qs.CustomTheme
 
-// Media-Centric Status Bar Module with Stable CAVA Spectrum & Interactive Micro-Expansion
+// Media-Centric Status Bar Module with Fluid Transitions, Spring Micro-Interactions & CAVA Spectrum
 Rectangle {
     id: root
 
@@ -26,7 +26,15 @@ Rectangle {
 
     // Collapse completely when nothing is playing/available
     readonly property bool collapsed: !hasPlayer || (trackTitle === "" && !isPlaying)
-    visible: !collapsed
+
+    // Smooth Appearance & Dissolve Opacity
+    opacity: collapsed ? 0.0 : 1.0
+    visible: opacity > 0.001 || implicitWidth > 0.5
+    clip: true
+
+    Behavior on opacity {
+        NumberAnimation { duration: 350; easing.type: Easing.OutQuint }
+    }
 
     // Hover handler for non-blocking hover detection
     HoverHandler {
@@ -82,18 +90,22 @@ Rectangle {
     }
 
     implicitHeight: 28
-    implicitWidth: collapsed ? 0 : (isExpanded ? (expandedContent.implicitWidth + 14) : (compactContent.implicitWidth + 10))
+    implicitWidth: collapsed ? 0 : (isExpanded ? (expandedContent.implicitWidth + 18) : (compactContent.implicitWidth + 14))
+
+    Behavior on implicitWidth {
+        NumberAnimation { duration: 380; easing.type: Easing.OutQuint }
+    }
+
     radius: 14
     color: (hoverHandler.hovered || root.focused) ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.10) : "transparent"
     border.color: (hoverHandler.hovered || root.focused) ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.25) : "transparent"
     border.width: 1
-    clip: true
-
-    Behavior on implicitWidth {
-        NumberAnimation { duration: 320; easing.type: Easing.OutQuint }
-    }
 
     Behavior on color {
+        ColorAnimation { duration: 300; easing.type: Easing.OutQuint }
+    }
+
+    Behavior on border.color {
         ColorAnimation { duration: 300; easing.type: Easing.OutQuint }
     }
 
@@ -140,6 +152,22 @@ Rectangle {
         }
     }
 
+    // Smooth Leading Divider inside Module
+    Rectangle {
+        id: leadingDivider
+        anchors.left: parent.left
+        anchors.leftMargin: 2
+        anchors.verticalCenter: parent.verticalCenter
+        width: 1
+        height: 16
+        color: Theme.outline_variant
+        opacity: root.collapsed ? 0.0 : 0.35
+
+        Behavior on opacity {
+            NumberAnimation { duration: 300; easing.type: Easing.OutQuint }
+        }
+    }
+
     // Background click handler (z: 0 so child buttons take precedence)
     MouseArea {
         id: bgMouse
@@ -161,17 +189,24 @@ Rectangle {
         id: compactContent
         z: 1
         anchors.left: parent.left
-        anchors.leftMargin: 6
+        anchors.leftMargin: 10
         anchors.verticalCenter: parent.verticalCenter
         spacing: 6
         opacity: root.isExpanded ? 0 : 1
-        visible: opacity > 0
+        visible: opacity > 0.01
 
         Behavior on opacity {
-            NumberAnimation { duration: 200; easing.type: Easing.OutQuint }
+            NumberAnimation { duration: 240; easing.type: Easing.OutCubic }
         }
 
-        // Clean Music Icon (No background fill)
+        transform: Translate {
+            x: root.isExpanded ? -8 : 0
+            Behavior on x {
+                NumberAnimation { duration: 280; easing.type: Easing.OutQuint }
+            }
+        }
+
+        // Clean Music Icon
         Item {
             implicitWidth: 16
             implicitHeight: 20
@@ -183,6 +218,16 @@ Rectangle {
                 font.family: "monospace"
                 font.pixelSize: 13
                 color: Theme.primary
+                opacity: root.isPlaying ? 1.0 : 0.60
+                scale: root.isPlaying ? 1.05 : 1.0
+
+                Behavior on opacity {
+                    NumberAnimation { duration: 300; easing.type: Easing.OutCubic }
+                }
+
+                Behavior on scale {
+                    NumberAnimation { duration: 300; easing.type: Easing.OutCubic }
+                }
             }
         }
 
@@ -198,7 +243,7 @@ Rectangle {
             elide: Text.ElideRight
         }
 
-        // Mini Play/Pause button (No background fill)
+        // Mini Play/Pause button with Spring Scale Interaction
         Item {
             id: playBtnCompact
             implicitWidth: 18
@@ -206,15 +251,21 @@ Rectangle {
             Layout.alignment: Qt.AlignVCenter
 
             Text {
+                id: playIconCompact
                 anchors.centerIn: parent
                 text: root.isPlaying ? "󰏤" : "󰐊"
                 font.family: "monospace"
                 font.pixelSize: 13
                 color: Theme.primary
-                opacity: playBtnMouse.containsMouse ? 1.0 : 0.75
+                opacity: playBtnMouse.containsMouse ? 1.0 : (root.isPlaying ? 0.90 : 0.70)
+                scale: playBtnMouse.pressed ? 0.82 : (playBtnMouse.containsMouse ? 1.25 : 1.0)
+
+                Behavior on scale {
+                    NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.4 }
+                }
 
                 Behavior on opacity {
-                    NumberAnimation { duration: 150 }
+                    NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
                 }
             }
 
@@ -227,7 +278,7 @@ Rectangle {
             }
         }
 
-        // Fixed-dimension CAVA spectrum container to prevent any layout vibration
+        // Fixed-dimension CAVA spectrum container with Fluid Bar Motion
         Item {
             id: barsContainer
             Layout.alignment: Qt.AlignVCenter
@@ -235,8 +286,13 @@ Rectangle {
             implicitHeight: root.maxBarHeight
             width: root.totalBarsWidth
             height: root.maxBarHeight
-            visible: root.isPlaying
+            opacity: root.isPlaying ? 1.0 : 0.0
+            visible: opacity > 0.01
             clip: true
+
+            Behavior on opacity {
+                NumberAnimation { duration: 280; easing.type: Easing.OutCubic }
+            }
 
             Row {
                 id: barsRow
@@ -255,6 +311,10 @@ Rectangle {
                         height: (root.rawValues && root.rawValues[index] !== undefined && root.isPlaying)
                             ? Math.max(root.minBarHeight, Math.min(root.maxBarHeight, (root.rawValues[index] / root.visualPeak) * root.maxBarHeight))
                             : root.minBarHeight
+
+                        Behavior on height {
+                            NumberAnimation { duration: 45; easing.type: Easing.OutQuad }
+                        }
                     }
                 }
             }
@@ -266,17 +326,24 @@ Rectangle {
         id: expandedContent
         z: 1
         anchors.left: parent.left
-        anchors.leftMargin: 8
+        anchors.leftMargin: 10
         anchors.verticalCenter: parent.verticalCenter
         spacing: 8
         opacity: root.isExpanded ? 1 : 0
-        visible: opacity > 0
+        visible: opacity > 0.01
 
         Behavior on opacity {
-            NumberAnimation { duration: 250; easing.type: Easing.OutQuint }
+            NumberAnimation { duration: 240; easing.type: Easing.OutCubic }
         }
 
-        // Clean Music Icon (No background fill)
+        transform: Translate {
+            x: root.isExpanded ? 0 : 8
+            Behavior on x {
+                NumberAnimation { duration: 280; easing.type: Easing.OutQuint }
+            }
+        }
+
+        // Clean Music Icon
         Item {
             implicitWidth: 16
             implicitHeight: 20
@@ -303,7 +370,7 @@ Rectangle {
             elide: Text.ElideRight
         }
 
-        // Media Control Buttons: Prev, Play/Pause, Next (No background fill)
+        // Media Control Buttons: Prev, Play/Pause, Next with Micro-Spring Animations
         RowLayout {
             Layout.alignment: Qt.AlignVCenter
             spacing: 6
@@ -314,15 +381,21 @@ Rectangle {
                 implicitHeight: 20
 
                 Text {
+                    id: prevIcon
                     anchors.centerIn: parent
                     text: "󰒮"
                     font.family: "monospace"
                     font.pixelSize: 13
                     color: Theme.primary
-                    opacity: prevMouse.containsMouse ? 1.0 : 0.75
+                    opacity: prevMouse.containsMouse ? 1.0 : 0.70
+                    scale: prevMouse.pressed ? 0.82 : (prevMouse.containsMouse ? 1.25 : 1.0)
+
+                    Behavior on scale {
+                        NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.4 }
+                    }
 
                     Behavior on opacity {
-                        NumberAnimation { duration: 150 }
+                        NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
                     }
                 }
 
@@ -341,15 +414,21 @@ Rectangle {
                 implicitHeight: 20
 
                 Text {
+                    id: playPauseExpandedIcon
                     anchors.centerIn: parent
                     text: root.isPlaying ? "󰏤" : "󰐊"
                     font.family: "monospace"
                     font.pixelSize: 14
                     color: Theme.primary
-                    opacity: playPauseExpandedMouse.containsMouse ? 1.0 : 0.85
+                    opacity: playPauseExpandedMouse.containsMouse ? 1.0 : (root.isPlaying ? 0.95 : 0.75)
+                    scale: playPauseExpandedMouse.pressed ? 0.82 : (playPauseExpandedMouse.containsMouse ? 1.25 : 1.0)
+
+                    Behavior on scale {
+                        NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.4 }
+                    }
 
                     Behavior on opacity {
-                        NumberAnimation { duration: 150 }
+                        NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
                     }
                 }
 
@@ -368,15 +447,21 @@ Rectangle {
                 implicitHeight: 20
 
                 Text {
+                    id: nextIcon
                     anchors.centerIn: parent
                     text: "󰒭"
                     font.family: "monospace"
                     font.pixelSize: 13
                     color: Theme.primary
-                    opacity: nextMouse.containsMouse ? 1.0 : 0.75
+                    opacity: nextMouse.containsMouse ? 1.0 : 0.70
+                    scale: nextMouse.pressed ? 0.82 : (nextMouse.containsMouse ? 1.25 : 1.0)
+
+                    Behavior on scale {
+                        NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.4 }
+                    }
 
                     Behavior on opacity {
-                        NumberAnimation { duration: 150 }
+                        NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
                     }
                 }
 
