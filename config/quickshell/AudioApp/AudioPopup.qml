@@ -1112,7 +1112,7 @@ PanelWindow {
                         PopupButton {
                             text: "Audio Settings"
                             onClicked: {
-                                Quickshell.execDetached(["bash", "-c", "qs -p " + Quickshell.env("HOME") + "/.local/share/ml4w-dotfiles-settings/quickshell ipc call settings openPage 5"]);
+                                Quickshell.execDetached(["jeme-settings", "openPage", "5"]);
                                 root.isOpen = false;
                             }
                         }

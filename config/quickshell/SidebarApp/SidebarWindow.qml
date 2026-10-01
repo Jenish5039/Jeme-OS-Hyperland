@@ -333,7 +333,7 @@ PanelWindow {
                     Layout.fillWidth: true
                     onClicked: {
                         root.isOpen = false
-                        Quickshell.execDetached(["bash", "-c", "qs -p " + Quickshell.env("HOME") + "/.local/share/ml4w-dotfiles-settings/quickshell ipc call settings toggle"])
+                        Quickshell.execDetached(["jeme-settings", "toggle"])
                     }
                 }
                 ML4WButton {

@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# JEME-SETTINGS: Robust Launcher & IPC Controller for Jeme OS Settings App
+# ==============================================================================
+set -euo pipefail
+
+TARGET_DIR="$HOME/.local/share/ml4w-dotfiles-settings/quickshell"
+ACTION="${1:-toggle}"
+
+is_running() {
+    qs -p "$TARGET_DIR" ipc show >/dev/null 2>&1
+}
+
+start_daemon() {
+    nohup env PROFILE="com.ml4w.dotfiles" qs -p "$TARGET_DIR" -d >/dev/null 2>&1 &
+    for i in {1..30}; do
+        if is_running; then
+            return 0
+        fi
+        sleep 0.1
+    done
+    return 1
+}
+
+# Ensure settings daemon is running
+if ! is_running; then
+    start_daemon
+fi
+
+# Dispatch IPC command
+case "$ACTION" in
+    openPage)
+        PAGE="${2:-0}"
+        qs -p "$TARGET_DIR" ipc call settings openPage "$PAGE"
+        ;;
+    open)
+        qs -p "$TARGET_DIR" ipc call settings open
+        ;;
+    close)
+        qs -p "$TARGET_DIR" ipc call settings close
+        ;;
+    isOpen)
+        qs -p "$TARGET_DIR" ipc call settings isOpen
+        ;;
+    toggle|*)
+        qs -p "$TARGET_DIR" ipc call settings toggle
+        ;;
+esac

@@ -26,13 +26,13 @@ ShellRoot {
     IpcHandler {
         target: "welcome"
         function toggle(): void {
-            Quickshell.execDetached(["bash", "-c", "qs -p " + Quickshell.env("HOME") + "/.local/share/ml4w-dotfiles-settings/quickshell ipc call settings toggle"])
+            Quickshell.execDetached(["jeme-settings", "toggle"])
         }
         function open(): void {
-            Quickshell.execDetached(["bash", "-c", "qs -p " + Quickshell.env("HOME") + "/.local/share/ml4w-dotfiles-settings/quickshell ipc call settings open"])
+            Quickshell.execDetached(["jeme-settings", "open"])
         }
         function close(): void {
-            Quickshell.execDetached(["bash", "-c", "qs -p " + Quickshell.env("HOME") + "/.local/share/ml4w-dotfiles-settings/quickshell ipc call settings close"])
+            Quickshell.execDetached(["jeme-settings", "close"])
         }
         function isOpen(): bool { return false }
     }

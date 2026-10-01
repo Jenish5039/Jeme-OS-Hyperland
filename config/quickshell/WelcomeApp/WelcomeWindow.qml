@@ -151,7 +151,7 @@ FloatingWindow {
                 ML4WMenuItem { 
                     text: qsTr("Dotfiles Settings");
                     onClicked: {
-                        Quickshell.execDetached(["qs", "-p", Quickshell.env("HOME") + "/.local/share/ml4w-dotfiles-settings/quickshell", "ipc", "call", "settings", "toggle"])
+                        Quickshell.execDetached(["jeme-settings", "toggle"])
                     }
                 }
                 ML4WMenuItem { 
@@ -351,7 +351,7 @@ FloatingWindow {
                         Button {
                             text: "Dotfiles Settings"
                             onClicked: {
-                                Quickshell.execDetached(["qs", "-p", Quickshell.env("HOME") + "/.local/share/ml4w-dotfiles-settings/quickshell", "ipc", "call", "settings", "toggle"])
+                                Quickshell.execDetached(["jeme-settings", "toggle"])
                             }
                             background: Rectangle {
                                 color: "transparent"
