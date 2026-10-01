@@ -23,7 +23,6 @@ Rectangle {
     readonly property bool hasPlayer: activePlayer !== null
     readonly property bool isPlaying: hasPlayer && activePlayer.isPlaying
     readonly property string trackTitle: hasPlayer && activePlayer.trackTitle ? activePlayer.trackTitle : ""
-    readonly property string artUrl: hasPlayer && activePlayer.trackArtUrl ? activePlayer.trackArtUrl : ""
 
     // Collapse completely when nothing is playing/available
     readonly property bool collapsed: !hasPlayer || (trackTitle === "" && !isPlaying)
@@ -172,21 +171,13 @@ Rectangle {
             NumberAnimation { duration: 200; easing.type: Easing.OutQuint }
         }
 
-        // Cover Art / Music Glyph
+        // Simple Music Icon
         Rectangle {
             implicitWidth: 20
             implicitHeight: 20
             radius: 5
             color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.15)
-            clip: true
             Layout.alignment: Qt.AlignVCenter
-
-            Image {
-                anchors.fill: parent
-                source: root.artUrl
-                fillMode: Image.PreserveAspectCrop
-                visible: root.artUrl !== ""
-            }
 
             Text {
                 anchors.centerIn: parent
@@ -194,7 +185,6 @@ Rectangle {
                 font.family: "monospace"
                 font.pixelSize: 12
                 color: Theme.primary
-                visible: root.artUrl === ""
             }
         }
 
@@ -291,21 +281,13 @@ Rectangle {
             NumberAnimation { duration: 250; easing.type: Easing.OutQuint }
         }
 
-        // Cover Art / Music Glyph
+        // Simple Music Icon
         Rectangle {
             implicitWidth: 22
             implicitHeight: 22
             radius: 6
             color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.15)
-            clip: true
             Layout.alignment: Qt.AlignVCenter
-
-            Image {
-                anchors.fill: parent
-                source: root.artUrl
-                fillMode: Image.PreserveAspectCrop
-                visible: root.artUrl !== ""
-            }
 
             Text {
                 anchors.centerIn: parent
@@ -313,7 +295,6 @@ Rectangle {
                 font.family: "monospace"
                 font.pixelSize: 13
                 color: Theme.primary
-                visible: root.artUrl === ""
             }
         }
 
