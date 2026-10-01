@@ -82,11 +82,11 @@ Singleton {
                 }
 
                 property QtObject pixelSize: QtObject {
-                    property int smaller: root.readInt("appearance.font.pixelSize.smaller", 12)
-                    property int small: root.readInt("appearance.font.pixelSize.small", 15)
-                    property int normal: root.readInt("appearance.font.pixelSize.normal", 16)
-                    property int larger: root.readInt("appearance.font.pixelSize.larger", 19)
-                    property int huge: root.readInt("appearance.font.pixelSize.huge", 22)
+                    property int smaller: root.readInt("appearance.font.pixelSize.smaller", 11)
+                    property int small: root.readInt("appearance.font.pixelSize.small", 12)
+                    property int normal: root.readInt("appearance.font.pixelSize.normal", 14)
+                    property int larger: root.readInt("appearance.font.pixelSize.larger", 16)
+                    property int huge: root.readInt("appearance.font.pixelSize.huge", 18)
                 }
             }
 

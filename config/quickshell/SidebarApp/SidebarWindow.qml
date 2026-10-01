@@ -133,7 +133,7 @@ PanelWindow {
         contentItem: Text {
             text: parent.text
             font.family: Theme.fontFamily
-            font.pixelSize: 16
+            font.pixelSize: 14
             color: Theme.primary
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
@@ -613,7 +613,7 @@ PanelWindow {
                                         text: player.trackTitle ? player.trackTitle : (player.identity ? player.identity : "No Media Playing")
                                         color: Theme.primary
                                         font.family: Theme.fontFamily
-                                        font.pixelSize: 16
+                                        font.pixelSize: 14
                                         font.bold: true
                                         elide: Text.ElideRight
                                     }
@@ -681,7 +681,7 @@ PanelWindow {
                     // --- STATUS BAR (Quickshell) ---
                     RowLayout {
                         Layout.fillWidth: true
-                        Text { text: "Status Bar"; color: Theme.primary; font.family: Theme.fontFamily; font.pixelSize: 16 }
+                        Text { text: "Status Bar"; color: Theme.primary; font.family: Theme.fontFamily; font.pixelSize: 14 }
                         Item { Layout.fillWidth: true }
                         ML4WSwitch {
                             id: statusbarSwitch
@@ -754,7 +754,7 @@ PanelWindow {
                     // --- STATUSBAR ALWAYS EXPANDED (Quickshell) ---
                     RowLayout {
                         Layout.fillWidth: true
-                        Text { text: "Statusbar Expanded"; color: Theme.primary; font.family: Theme.fontFamily; font.pixelSize: 16 }
+                        Text { text: "Statusbar Expanded"; color: Theme.primary; font.family: Theme.fontFamily; font.pixelSize: 14 }
                         Item { Layout.fillWidth: true }
                         ML4WSwitch {
                             id: statusbarExpandedSwitch
@@ -792,7 +792,7 @@ PanelWindow {
                     // --- DOCK ---
                     RowLayout {
                         Layout.fillWidth: true
-                        Text { text: "Dock"; color: Theme.primary; font.family: Theme.fontFamily; font.pixelSize: 16 }
+                        Text { text: "Dock"; color: Theme.primary; font.family: Theme.fontFamily; font.pixelSize: 14 }
                         Item { Layout.fillWidth: true }
                         ML4WSwitch {
                             id: dockSwitch
@@ -859,7 +859,7 @@ PanelWindow {
                     // --- DOCK AUTOHIDE ---
                     RowLayout {
                         Layout.fillWidth: true
-                        Text { text: "Dock Autohide"; color: Theme.primary; font.family: Theme.fontFamily; font.pixelSize: 16 }
+                        Text { text: "Dock Autohide"; color: Theme.primary; font.family: Theme.fontFamily; font.pixelSize: 14 }
                         Item { Layout.fillWidth: true }
                         ML4WSwitch {
                             id: dockAutohideSwitch
@@ -907,7 +907,7 @@ PanelWindow {
                     // --- GAMEMODE ---
                     RowLayout {
                         Layout.fillWidth: true
-                        Text { text: "Gamemode"; color: Theme.primary; font.family: Theme.fontFamily; font.pixelSize: 16 }
+                        Text { text: "Gamemode"; color: Theme.primary; font.family: Theme.fontFamily; font.pixelSize: 14 }
                         Item { Layout.fillWidth: true }
                         ML4WSwitch {
                             id: gamemodeSwitch
@@ -934,7 +934,7 @@ PanelWindow {
                     // --- HYPRIDLE ---
                     RowLayout {
                         Layout.fillWidth: true
-                        Text { text: "Hypridle"; color: Theme.primary; font.family: Theme.fontFamily; font.pixelSize: 16 }
+                        Text { text: "Hypridle"; color: Theme.primary; font.family: Theme.fontFamily; font.pixelSize: 14 }
                         Item { Layout.fillWidth: true }
                         ML4WSwitch {
                             id: hypridleSwitch
@@ -975,7 +975,7 @@ PanelWindow {
                     // --- FASTFETCH ---
                     RowLayout {
                         Layout.fillWidth: true
-                        Text { text: "Fastfetch"; color: Theme.primary; font.family: Theme.fontFamily; font.pixelSize: 16 }
+                        Text { text: "Fastfetch"; color: Theme.primary; font.family: Theme.fontFamily; font.pixelSize: 14 }
                         Item { Layout.fillWidth: true }
                         ML4WSwitch {
                             id: fastfetchSwitch
@@ -1004,7 +1004,7 @@ PanelWindow {
                     // --- WALLPAPER ---
                     RowLayout {
                         Layout.fillWidth: true
-                        Text { text: "Wallpaper"; color: Theme.primary; font.family: Theme.fontFamily; font.pixelSize: 16 }
+                        Text { text: "Wallpaper"; color: Theme.primary; font.family: Theme.fontFamily; font.pixelSize: 14 }
                         Item { Layout.fillWidth: true }
                         ActionIcon {
                             iconSrc: "../shared/icons/wallpaper.svg"
@@ -1018,7 +1018,7 @@ PanelWindow {
                     // --- THEME ---
                     RowLayout {
                         Layout.fillWidth: true
-                        Text { text: "Theme"; color: Theme.primary; font.family: Theme.fontFamily; font.pixelSize: 16 }
+                        Text { text: "Theme"; color: Theme.primary; font.family: Theme.fontFamily; font.pixelSize: 14 }
                         Item { Layout.fillWidth: true }
                         SettingsWheel {
                             onClicked: themeMenu.open()

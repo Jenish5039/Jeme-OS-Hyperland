@@ -23,11 +23,11 @@
         "expressive": "Inter Medium"
       },
       "pixelSize": {
-        "smaller": 12,
-        "small": 15,
-        "normal": 16,
-        "larger": 19,
-        "huge": 22
+        "smaller": 11,
+        "small": 12,
+        "normal": 14,
+        "larger": 16,
+        "huge": 18
       }
     },
     "animation": {

@@ -8,6 +8,11 @@ QtObject {
     
     // Static properties
     readonly property string fontFamily: "Inter Medium"
+    readonly property int fontSizeSmaller: 11
+    readonly property int fontSizeSmall: 12
+    readonly property int fontSizeNormal: 14
+    readonly property int fontSizeLarge: 16
+    readonly property int fontSizeHuge: 18
     
     // Dynamic color properties
     property color background: "#1a1110"
